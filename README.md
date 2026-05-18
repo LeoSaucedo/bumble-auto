@@ -40,40 +40,113 @@ personalized opener.
 
 ## Quickstart
 
-1. Install [Android Studio](https://developer.android.com/studio) and
-   create an emulator. Pixel 10 (1080×2424) is the default target — other
-   profiles will need re-calibration.
-2. Sideload the Hinge APK into the emulator, sign in, get to the Discover
-   tab. Make sure `adb devices` lists it.
-3. Clone this repo and install deps:
-   ```
-   pip install -r requirements.txt
-   ```
-4. Copy `.env.example` to `.env` and add your Anthropic API key.
-5. Run calibration — this saves a screenshot you read pixel coords from:
-   ```
-   python calibrate.py
-   ```
-   Open the resulting `calibrate.png` in any image viewer that shows cursor
-   coordinates (Paint, IrfanView, Preview's tool inspector) and edit
-   `config.py` `COORDS` to match.
-6. Pick a mode in `modes/` (start with `example_lenient.py` or
-   `example_strict.py`), set `ACTIVE_MODE` in `config.py` to match. The
-   shipped `MAX_LIKES_PER_SESSION = 8` is calibrated to free Hinge's
-   daily cap — leave it for your first run.
-7. Run the loop:
-   ```
-   python main.py
-   ```
-   Watch the first few decisions print live. If a decision or opener
-   looks wrong, Ctrl-C, edit `PREFERENCES` in your mode file, and re-run.
-   With Hinge+, bump `MAX_LIKES_PER_SESSION` to 25–50 once decisions
-   consistently match your rubric.
+### 1. Set up Android Studio + a Pixel 10 emulator
 
-   (Optional) `DRY_RUN = True` in `config.py` runs the judge without
-   sending likes, but every "would-like" profile gets force-skipped and
-   is gone from your queue — usually not worth it. Small live batches
-   are the better feedback loop.
+If you've never used Android Studio, this is the longest step. Skip
+ahead if you already have an emulator running with `adb devices`
+showing it.
+
+1. Download Android Studio from <https://developer.android.com/studio>
+   (free, ~1 GB). During install, keep "Android SDK" and "Android
+   Virtual Device" checked — they bundle the `adb` CLI this repo
+   needs.
+2. Open Android Studio. On the Welcome screen click **More Actions →
+   Virtual Device Manager** (or **Tools → Device Manager** if you've
+   already opened a project).
+3. Click **+ Create Device** (or the **+** icon).
+4. Under **Phone**, select **Pixel 10**. If your Android Studio
+   version doesn't list Pixel 10 yet, **Pixel 9** has the same
+   1080×2424 screen and works identically. Click **Next**.
+5. Pick a system image. **API 34 (Android 14) with Google Play** is a
+   good default — Hinge installs cleanly from the Play Store on it.
+   Download the image if there's a download icon next to it (~1 GB,
+   one-time). Click **Next → Finish**.
+6. Back in Device Manager, click the **▶ play** arrow on the new
+   device row. First boot takes 2–5 minutes.
+7. In the emulator, open **Play Store**, sign in with a throwaway
+   Google account, search **Hinge**, install, open, finish onboarding
+   (one account only — see the warning at the top of this README),
+   navigate to the **Discover** tab.
+
+**Cold Boot when things get weird.** The emulator persists state via
+snapshots ("Quick Boot"), so a borked Hinge state or hung input can
+survive restarts. To wipe the snapshot: in Device Manager, click the
+**⋮** menu on the device row → **Cold Boot Now**. This is the
+emulator-equivalent of yanking the battery.
+
+**Confirm `adb` works.** From a fresh terminal:
+
+```
+adb devices
+```
+
+You should see `emulator-5554   device` (or similar). If `adb` isn't
+on your PATH, find it under your Android SDK directory (on Windows:
+`%LOCALAPPDATA%\Android\Sdk\platform-tools\`; on Mac:
+`~/Library/Android/sdk/platform-tools/`) and add that to PATH.
+
+### 2. Install repo dependencies
+
+```
+git clone https://github.com/TerraByte-Dev/hinge-auto.git
+cd hinge-auto
+pip install -r requirements.txt
+```
+
+### 3. Pick a judge backend
+
+```
+cp .env.example .env
+```
+
+Then either:
+
+- **Anthropic (default, best quality)** — open `.env` and add
+  `ANTHROPIC_API_KEY=sk-ant-...`. Get a key at
+  <https://console.anthropic.com>. Roughly $0.25/day at the free-tier
+  cap.
+- **Ollama (free)** — see the [Backends](#backends-anthropic-api-vs-ollama-free)
+  section below. Lower decision quality, no per-token cost.
+
+### 4. Calibrate coordinates (probably skip)
+
+The shipped `config.COORDS` is tuned for a Pixel 10 emulator at
+1080×2424. If that's what you set up, you can skip this step.
+
+For other devices or after a Hinge UI update, run:
+
+```
+python calibrate.py
+```
+
+It saves `calibrate.png` to the repo root. Open it in any image
+viewer that shows cursor coordinates (Paint, IrfanView, Preview's
+inspector) and update the values in `config.COORDS` that don't match.
+
+### 5. Pick a mode
+
+Three example modes ship in `modes/` (see [Writing your own mode](#writing-your-own-mode)).
+Set `ACTIVE_MODE` in `config.py` to the file's `NAME` field. The
+shipped `MAX_LIKES_PER_SESSION = 8` matches free Hinge's daily cap
+— leave it for your first run.
+
+### 6. Run
+
+With Hinge open on the Discover tab in the emulator:
+
+```
+python main.py
+```
+
+Watch the first few decisions print live. If a decision or opener
+looks wrong: Ctrl-C, edit `PREFERENCES` in your mode file, re-run.
+With Hinge+, bump `MAX_LIKES_PER_SESSION` to 25–50 once decisions
+consistently match your rubric.
+
+> `DRY_RUN = True` in `config.py` runs the judge without sending
+> likes, but every "would-like" profile gets force-skipped and is
+> gone from your queue — usually worse than just running small live
+> batches.
 
 ## Bonus: scan your own profile
 
@@ -96,44 +169,42 @@ Three example rubrics ship in `modes/`:
 
 - `example_lenient.py` — default-LIKE, generic. Good starting point.
 - `example_strict.py` — default-SKIP, generic. The antonym.
-- `cougar.py` — a themed mode: older age band (33-44) with playful
+- `cougar.py` — themed: older age band (33-44) with playful
   young-buck premades. Shows how to combine `AGE_MIN/MAX`, an inline
-  `MESSAGE_VOICE`, and themed `PREMADES`. This is the mode behind the
+  `MESSAGE_VOICE`, and themed `PREMADES`. The mode behind the
   framing that got the project some attention. Run it with
   `python main.py --mode cougar --set-filters` to also drive Hinge's
   in-app age slider.
 
-- Copy `modes/template.py.example` to `modes/<your_name>.py`.
-- Edit `PREFERENCES` to describe what should and shouldn't get a like.
-- Optionally set `MESSAGE_VOICE` to one of the templates under `voice/`
-  (e.g. `"example_casual"` or `"example_polished"`), or paste a multi-line
-  rubric string directly.
-- Optionally populate `PREMADES` with verbatim openers Claude can pick
-  from instead of writing fresh copy.
-- Point `ACTIVE_MODE` in `config.py` at the new file, or pass
-  `--mode <your_name>` on the command line.
+To write your own:
+
+1. Copy `modes/template.py.example` to `modes/<your_name>.py`.
+2. Edit `PREFERENCES` to describe what should and shouldn't get a like.
+3. Optionally set `MESSAGE_VOICE` to one of the templates under
+   `voice/` (e.g. `"example_casual"` or `"example_polished"`), or
+   paste a multi-line rubric string directly into the field.
+4. Optionally populate `PREMADES` with verbatim openers Claude can
+   pick from instead of writing fresh copy.
+5. Point `ACTIVE_MODE` in `config.py` at the new file (use the
+   value of its `NAME` field, not the filename), or pass
+   `--mode <your_name>` on the command line.
 
 ## Calibration
 
-ADB drives the emulator by tapping absolute pixel coordinates. The
-shipped `config.COORDS` is calibrated for the **Pixel 10 emulator
-(1080×2424)** — if that's what you're using, it should work as-is.
-For other devices or after Hinge UI updates, re-calibrate:
+`python calibrate.py` (covered in [Quickstart](#4-calibrate-coordinates-probably-skip))
+handles the main coords. Two more calibration scripts are only needed
+if you use the corresponding optional features:
 
-- `python calibrate.py` — main coords (skip / heart / scroll / nav bar
-  / self-profile path / filter chips). Captures a screenshot you read
-  pixel coords from.
-- `python calibrate_filters.py` — Age filter slider coords. Only needed
-  if you plan to use `python main.py --set-filters` to drive the in-app
-  age range.
-- `python calibrate_matches.py` — Matches-tab tap target. Only needed if
-  you run `matches_scan.py` to scrape your conversations list.
+- `python calibrate_filters.py` — Age slider thumb anchors. Needed
+  for `python main.py --set-filters`.
+- `python calibrate_matches.py` — Matches-tab tap target. Needed for
+  `python matches_scan.py`.
 
-The location picker (`locations.py`) needs a `location_coords.json` file.
-A schema is provided at `location_coords.json.example` — copy it, rename,
-and fill in real pixel coords by hand from a `calibrate.py` screenshot.
-(The original project had a `calibrate_locations.py` interactive helper
-but it was never written; PRs welcome.)
+The location picker (`locations.py`) needs a hand-rolled
+`location_coords.json`. A schema is at `location_coords.json.example`
+— copy it, rename, fill in pixel coords from a `calibrate.py`
+screenshot. (No interactive helper exists for this one yet; PRs
+welcome.)
 
 ## Architecture
 
@@ -213,7 +284,11 @@ Uses an open-weight vision model through Ollama. **No per-token cost**
 on the free tier of Ollama Cloud, or fully local on your own GPU.
 
 Setup:
-1. `pip install -r requirements.txt && pip install -r requirements-ollama.txt`
+1. Install the extra dep:
+   ```
+   pip install -r requirements.txt
+   pip install -r requirements-ollama.txt
+   ```
 2. Either:
    - **Ollama Cloud** — sign up at <https://ollama.com>, create an API
      key, set `OLLAMA_API_KEY=...` in your `.env`, and set
