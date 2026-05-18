@@ -4,9 +4,10 @@ PREFERENCES, AGE_MIN/MAX, and MESSAGE_VOICE come from the active mode (see
 `modes/`). Set ACTIVE_MODE here for the persistent default; override per-run
 via `python main.py --mode <name>`.
 
-The COORDS defaults below are PLACEHOLDERS for a Pixel 10 emulator at
-1080x2424. They WILL be wrong for your device — run `python calibrate.py`
-before your first session.
+The COORDS defaults below are calibrated for a Pixel 10 emulator
+(1080x2424). If that's what you're running and Hinge hasn't shifted
+its layout, they should work as-is. Otherwise run `python calibrate.py`
+and update the values that don't match your device.
 """
 
 from pathlib import Path
@@ -56,18 +57,20 @@ SCREEN_HEIGHT = 2424
 # below. Duplicate end frames on shorter profiles are harmless.
 FRAMES_PER_PROFILE = 7
 
-# ---------- Coordinates (CALIBRATE BEFORE USE) ----------
-# All values in absolute pixels for the configured screen size.
-# These are PLACEHOLDERS based on one emulator setup — they will not match
-# yours. Run `python calibrate.py` and overwrite these.
+# ---------- Coordinates ----------
+# Pixel 10 emulator defaults (1080x2424). These values are
+# accurate for the standard Pixel 10 AVD; if your screen is the same
+# resolution and Hinge's layout hasn't shifted, they'll work as-is. If
+# anything is off, run `python calibrate.py` to capture a screenshot and
+# update the values that don't match.
 COORDS = {
-    # Skip / like action targets
-    "skip_button":       (140, 2068),
-    "heart_photo_1":     (938, 1426),
+    # Skip / like action targets (Discover screen, photo 1 at top)
+    "skip_button":       (134, 2068),   # X icon on prompt/photo card
+    "heart_photo_1":     (938, 1421),   # Heart icon on photo 1
 
     # Compose box (anchors to the element whose heart was tapped; these
-    # values assume the heart on photo 1 was tapped — vision.py re-finds
-    # them at tap-time, so these are mostly fallbacks).
+    # values are mostly fallbacks — vision.py re-finds them at tap-time
+    # because the box shifts per profile).
     "send_like_button":  (687, 1488),
     "comment_input":     (540, 1317),
     "compose_close":     (960, 200),
@@ -76,6 +79,25 @@ COORDS = {
     "scroll_from":       (540, 1700),
     "scroll_to":         (540, 700),
     "scroll_duration_ms": 350,
+
+    # Bottom nav (5 evenly-spaced icons across the bottom strip).
+    "nav_discover":      (108, 2270),
+    "nav_standouts":     (324, 2270),
+    "nav_likes_you":     (540, 2270),
+    "nav_matches":       (756, 2270),
+    "nav_self_pfp":      (972, 2270),
+
+    # Self-profile flow (used by scan_self.py — "what does my profile
+    # look like to others"). From Discover: nav_self_pfp → self_avatar →
+    # view_tab gets you to a scrollable view of your own profile. Then
+    # back_arrow → back_arrow → nav_discover to return.
+    "self_avatar":       (540, 497),    # circle avatar on self tab
+    "view_tab":          (810, 310),    # 'View' tab on profile editor
+    "back_arrow":        (65, 200),     # top-left back arrow
+
+    # Discover filter row (tap the chip to open its bottom sheet).
+    "sliders_icon":      (95, 225),     # opens Dating Preferences
+    "age_chip":          (460, 225),    # opens Age filter sheet
 }
 
 # ---------- Timing ----------

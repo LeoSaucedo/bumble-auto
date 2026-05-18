@@ -7,6 +7,9 @@ location_coords.json
 matches_coords.json
 locations.json
 
+# Calibration captures from interactive coord mapping
+_cal/
+
 # Debug + screenshots — match data, decisions, captured frames
 debug/
 screenshots/

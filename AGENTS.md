@@ -124,6 +124,21 @@ interactive helper exists for the location picker yet).
    lines they want to use verbatim.
 7. Update `ACTIVE_MODE` in `config.py` to their new mode's `NAME`.
 
+### Phase 5a — Profile health check (recommended before going live)
+
+Before running the swipe loop, suggest the user run `python scan_self.py`
+to get Claude's review of their own profile. Reasons:
+1. If photos/prompts are weak, fixing them is higher-leverage than
+   tuning the rubric.
+2. It validates that the user's emulator coords are working before
+   anything is sent to a real person.
+3. It's ToS-clean (just looks at the user's own profile) so a screw-up
+   has no consequence.
+
+The report writes to `debug/self_scan_<timestamp>.md`. Walk through
+the suggestions with the user and offer to help implement the
+prompt rewrites or photo reorder before the first swipe session.
+
 ### Phase 5 — First live run
 
 1. Leave `MAX_LIKES_PER_SESSION = 8` (default — matches free Hinge's
@@ -168,6 +183,9 @@ the queue — usually worse than just running small live batches.
 - `metrics.py` — JSONL session logging.
 - `matches_scan.py` — separate Matches-tab scraper for analytics;
   Anthropic-only.
+- `scan_self.py` — captures the user's own profile (as others see it)
+  and asks Claude for improvement suggestions. The only feature in
+  this repo that doesn't touch the swipe loop.
 
 ## Things to push back on
 

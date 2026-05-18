@@ -75,6 +75,21 @@ personalized opener.
    is gone from your queue — usually not worth it. Small live batches
    are the better feedback loop.
 
+## Bonus: scan your own profile
+
+```
+python scan_self.py
+```
+
+Taps through to your own profile's "View" tab (what other people see),
+captures the frames, sends them to Claude, and writes a Markdown report
+to `debug/self_scan_<timestamp>.md` with specific suggestions for
+photos, prompts, and the overall hook. Run it once a week.
+
+This is the one thing in this repo that doesn't violate Hinge's ToS —
+no swiping, no messaging, just looking at your own content. Probably
+the most useful tool in the repo.
+
 ## Writing your own mode
 
 Two example rubrics ship in `modes/`: `example_lenient.py` (default-LIKE)
@@ -92,12 +107,14 @@ and `example_strict.py` (default-SKIP). Use them as starting points.
 
 ## Calibration
 
-ADB drives the emulator by tapping absolute pixel coordinates, so anything
-that moves a UI element invalidates the saved coords.
+ADB drives the emulator by tapping absolute pixel coordinates. The
+shipped `config.COORDS` is calibrated for the **Pixel 10 emulator
+(1080×2424)** — if that's what you're using, it should work as-is.
+For other devices or after Hinge UI updates, re-calibrate:
 
-- `python calibrate.py` — main coords (skip / heart / scroll). Run once
-  after your first emulator setup, then again any time Hinge updates the
-  Discover layout.
+- `python calibrate.py` — main coords (skip / heart / scroll / nav bar
+  / self-profile path / filter chips). Captures a screenshot you read
+  pixel coords from.
 - `python calibrate_filters.py` — Age filter slider coords. Only needed
   if you plan to use `python main.py --set-filters` to drive the in-app
   age range.
@@ -144,6 +161,9 @@ ADB capture  →  frame stitching  →  Claude judge  →  action
   (age, neighborhood). Both need calibrated coord files.
 - **`matches_scan.py`** scrapes the Matches tab via a separate Claude
   vision pass — for analytics, not for the swipe loop.
+- **`scan_self.py`** captures the user's own profile (via the "View"
+  tab) and asks Claude for improvement suggestions. The non-swiping
+  feature of the repo; nothing here violates Hinge ToS.
 
 ## Safety and rate limits
 
