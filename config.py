@@ -119,6 +119,7 @@ DELAYS = {
 # "anthropic" -> uses your ANTHROPIC_API_KEY; best quality, ~$0.02-0.05/profile.
 # "ollama"    -> uses Ollama Cloud (free tier) or local Ollama; lower quality
 #                but no per-token cost.
+# "gemini"    -> uses Gemini via GEMINI_API_KEY; cheapest option.
 JUDGE_BACKEND = "anthropic"
 
 # ---------- Anthropic settings (when JUDGE_BACKEND == "anthropic") ----------
@@ -139,6 +140,12 @@ OLLAMA_MODEL = "qwen2.5-vl"
 #              "https://ollama.com" -> Ollama Cloud (requires OLLAMA_API_KEY)
 # Can also be set via the OLLAMA_HOST environment variable.
 OLLAMA_HOST = None
+
+# ---------- Gemini settings (when JUDGE_BACKEND == "gemini") ----------
+# GEMINI_API_KEY must be set in .env or environment.
+# Uses gemini-3.1-flash-lite by default (cheapest vision model). Override
+# via GEMINI_MODEL env var or edit the default below.
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 
 # ---------- Paths ----------
 BASE_DIR = Path(__file__).parent
