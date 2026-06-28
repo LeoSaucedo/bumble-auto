@@ -5,6 +5,7 @@ Loop: capture profile frames -> ask Claude -> tap like or skip -> repeat.
 
 import argparse
 import hashlib
+import random
 import re
 import sys
 import time
@@ -43,7 +44,7 @@ def capture_profile() -> list[bytes]:
     # against the app being mid-scroll from a prior partial action. A
     # handful of swipes is enough — full 18-swipe sweep isn't needed
     # because we aren't recovering from a 7-frame scroll-down.
-    scroll_back_to_top(swipes=5)
+    scroll_back_to_top(swipes=random.randint(3, 8))
 
     frames = []
     frames.append(adb.screenshot())
@@ -320,6 +321,11 @@ def main() -> int:
             continue
         last_frame0_hash = frame0_hash
         duplicate_streak = 0
+
+        # Random profile dwell — simulates actually reading
+        dwell = random.uniform(2, 8)
+        print(f"  Reading profile for {dwell:.1f}s...")
+        time.sleep(dwell)
 
         t1 = time.monotonic()
         decision = None
