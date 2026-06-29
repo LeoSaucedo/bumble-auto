@@ -377,12 +377,12 @@ def main() -> int:
 
         t2 = time.monotonic()
         if decision.decision == "like":
-            if likes_sent >= config.MAX_LIKES_PER_SESSION:
-                print(f"Hit max likes cap ({config.MAX_LIKES_PER_SESSION}). Stopping.")
-                break
             try:
                 do_like(decision.message)
                 likes_sent += 1
+                if likes_sent >= config.MAX_LIKES_PER_SESSION:
+                    print(f"Hit max likes cap ({config.MAX_LIKES_PER_SESSION}). Stopping.")
+                    break
             except Exception as e:
                 print(f"do_like failed: {e!r} — recovering by skipping this profile.")
                 try:
