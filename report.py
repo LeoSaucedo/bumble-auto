@@ -95,7 +95,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
         # Find & read the first photo
         if liked_dir.is_dir():
             for folder in sorted(liked_dir.iterdir()):
-                if folder.is_dir() and folder.name.endswith(f"_{safe}"):
+                if folder.is_dir() and (folder.name.endswith(f"_{safe}") or f"_{safe}" in folder.name):
                     photo = folder / "imgs" / "frame_00.png"
                     if photo.is_file():
                         files.append((f"{safe}_frame_00.png", photo.read_bytes()))

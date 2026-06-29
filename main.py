@@ -183,7 +183,8 @@ def save_debug(frames: list[bytes], decision, profile_idx: int) -> None:
     bucket_dir = config.DEBUG_DIR / bucket
     bucket_dir.mkdir(parents=True, exist_ok=True)
     safe_name = re.sub(r"[^a-z0-9]", "", (decision.name or "unknown").lower()) or "unknown"
-    folder = bucket_dir / f"{profile_idx:02d}_{safe_name}"
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    folder = bucket_dir / f"{ts}_{profile_idx:02d}_{safe_name}"
     imgs = folder / "imgs"
     imgs.mkdir(parents=True, exist_ok=True)
     for i, png in enumerate(frames):
