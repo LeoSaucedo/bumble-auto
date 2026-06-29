@@ -21,6 +21,7 @@ from PIL import Image
 import adb
 import config
 import metrics
+import report
 import vision
 from judge_common import load_backend
 
@@ -277,6 +278,7 @@ def main() -> int:
     profiles_seen = 0
     total_cost = 0.0
     total_seconds = 0.0
+    liked_profiles: list[dict] = []  # tracked for the webhook report
     last_frame0_hash: str | None = None
     duplicate_streak = 0
 
@@ -388,6 +390,11 @@ def main() -> int:
         if decision.decision == "like":
             try:
                 do_like(decision.message)
+                liked_profiles.append({
+                    "name": decision.name,
+                    "message": decision.message,
+                    "index": profiles_seen,
+                })
                 likes_sent += 1
                 if likes_sent >= config.MAX_LIKES_PER_SESSION:
                     print(f"Hit max likes cap ({config.MAX_LIKES_PER_SESSION}). Stopping.")
@@ -418,6 +425,10 @@ def main() -> int:
         )
 
     print(f"\nDone. {likes_sent} likes sent across {profiles_seen} profiles.")
+
+    # Post-run report to Discord webhook (if configured)
+    report.post_run(likes_sent, profiles_seen, skips, total_cost, total_seconds,
+                    liked_profiles)
 
     # Cleanup: force-stop Hinge so next run starts fresh regardless of app state,
     # then turn screen off.
