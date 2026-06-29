@@ -65,7 +65,7 @@ DRY_RUN_MESSAGE = False
 # random cap between SESSION_LIKE_MIN and MAX_LIKES_PER_SESSION so the
 # like count varies per session — looks more human.
 MAX_LIKES_PER_SESSION = 8
-SESSION_LIKE_MIN = 2
+SESSION_LIKE_MIN = 0
 MAX_PROFILES_PER_SESSION = 100
 
 # ---------- Emulator settings ----------

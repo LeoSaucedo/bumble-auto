@@ -262,6 +262,10 @@ def main() -> int:
           f"{config.SESSION_LIKE_MIN}-{config.MAX_LIKES_PER_SESSION}), "
           f"max profiles: {config.MAX_PROFILES_PER_SESSION}")
 
+    if session_like_cap == 0:
+        print("Cap is 0 — skipping this session.")
+        return 0
+
     if args.set_filters:
         if config.AGE_MIN is None and config.AGE_MAX is None:
             print("--set-filters requested but active mode has no age range; "
