@@ -9,8 +9,7 @@ The COORDS defaults below are calibrated for a Pixel 10 emulator
 its layout, they should work as-is. Otherwise run `python calibrate.py`
 and update the values that don't match your device.
 
-Any config variable can be overridden by setting it in `.env` — the env
-wins at import time.
+.env variables override every config.py value at import time.
 """
 
 import os
@@ -20,7 +19,7 @@ from dotenv import load_dotenv
 
 # ---------- Mode selection ----------
 # Which `modes/<name>.py` to load. Overridden per-run by `python main.py --mode X`.
-ACTIVE_MODE = "example_lenient"  # override via .env: ACTIVE_MODE=carlos
+ACTIVE_MODE = "example_lenient"
 
 # These get filled in by _apply_mode() at the bottom of this file. Declared
 # here so static analyzers / IDEs see them. Do not edit by hand — edit the
@@ -52,7 +51,7 @@ DRY_RUN = False
 #                             judge, but skip typing it. The message is
 #                             logged in decision.txt so you can review it
 #                             without it going out to the profile.
-DRY_RUN_MESSAGE = False  # override via .env: DRY_RUN_MESSAGE=true
+DRY_RUN_MESSAGE = False
 
 # Default = 8, which matches free-tier Hinge's daily like cap (resets at
 # 4am local). One session per day exhausts the free allotment cleanly.
@@ -61,7 +60,7 @@ DRY_RUN_MESSAGE = False  # override via .env: DRY_RUN_MESSAGE=true
 # run multiple sessions throughout the day. Going much higher per session
 # tends to trigger Hinge's soft-throttle (empty Discover after a burst);
 # spacing batches across the day works better than one giant batch.
-MAX_LIKES_PER_SESSION = 8  # override via .env: MAX_LIKES_PER_SESSION=2
+MAX_LIKES_PER_SESSION = 8
 MAX_PROFILES_PER_SESSION = 100
 
 # ---------- Emulator settings ----------
@@ -127,7 +126,7 @@ DELAYS = {
 # "ollama"    -> uses Ollama Cloud (free tier) or local Ollama; lower quality
 #                but no per-token cost.
 # "gemini"    -> uses Gemini via GEMINI_API_KEY; cheapest option.
-JUDGE_BACKEND = "gemini"
+JUDGE_BACKEND = "anthropic"
 
 # ---------- Anthropic settings (when JUDGE_BACKEND == "anthropic") ----------
 # Sonnet is the default — cheaper than Opus and plenty capable for this task.
