@@ -11,8 +11,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-# Random delay 0-59 minutes (in seconds) so runs land anywhere in the hour
-delay=$((RANDOM % 3540))
+# Random delay 0-30 minutes (in seconds). Cap at 30 to leave a 15min
+# buffer + ~10-15min runtime so runs never overlap the next hour.
+delay=$((RANDOM % 1800))
 start_time=$(date -d "+${delay} seconds" '+%H:%M')
 echo "[$(date)] Cron fired. Will run at ~${start_time} (${delay}s delay)"
 sleep "$delay"
