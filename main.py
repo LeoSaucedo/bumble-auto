@@ -176,9 +176,9 @@ def save_error_screenshot(context: str) -> None:
     (errors_dir / f"{ts}_{context}.png").write_bytes(png)
 
 
-def save_debug(frames: list[bytes], decision, profile_idx: int) -> None:
+def save_debug(frames: list[bytes], decision, profile_idx: int) -> str | None:
     if not config.SAVE_DEBUG_FRAMES:
-        return
+        return None
     bucket = "liked" if decision.decision == "like" else "skipped"
     bucket_dir = config.DEBUG_DIR / bucket
     bucket_dir.mkdir(parents=True, exist_ok=True)
@@ -190,6 +190,7 @@ def save_debug(frames: list[bytes], decision, profile_idx: int) -> None:
     for i, png in enumerate(frames):
         (imgs / f"frame_{i:02d}.png").write_bytes(png)
     (folder / "decision.txt").write_text(
+
         f"name: {decision.name}\n"
         f"decision: {decision.decision}\n"
         f"confidence: {decision.confidence}\n"
@@ -200,6 +201,7 @@ def save_debug(frames: list[bytes], decision, profile_idx: int) -> None:
         f"skip_reason: {decision.skip_reason}\n"
         f"timestamp: {datetime.now().isoformat(timespec='seconds')}\n"
     )
+    return folder.name
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -412,7 +414,7 @@ def main() -> int:
         print(f"Reason:   {decision.reasoning}")
         if decision.message:
             print(f"Message:  {decision.message}")
-        save_debug(frames, decision, profiles_seen)
+        folder_name = save_debug(frames, decision, profiles_seen)
 
         t2 = time.monotonic()
         if decision.decision == "like":
@@ -422,6 +424,7 @@ def main() -> int:
                     "name": decision.name,
                     "message": decision.message,
                     "index": profiles_seen,
+                    "folder": folder_name,
                 })
                 likes_sent += 1
                 if likes_sent >= session_like_cap:

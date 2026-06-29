@@ -92,14 +92,26 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
 
         profile_texts.append(f"{i + 1}. **{name}** — {msg}")
 
-        # Find & read the first photo
-        if liked_dir.is_dir():
-            for folder in sorted(liked_dir.iterdir()):
-                if folder.is_dir() and (folder.name.endswith(f"_{safe}") or f"_{safe}" in folder.name):
-                    photo = folder / "imgs" / "frame_00.png"
-                    if photo.is_file():
-                        files.append((f"{safe}_frame_00.png", photo.read_bytes()))
-                        break
+        # Find & read the first photo using exact folder name
+        folder_name = profile.get("folder")
+        photo = None
+        if folder_name and liked_dir.is_dir():
+            exact_folder = liked_dir / folder_name
+            candidate = exact_folder / "imgs" / "frame_00.png"
+            if candidate.is_file():
+                photo = candidate
+        if photo is None:
+            # Fallback: scan by name (pre-timestamp format compatibility)
+            safe = "".join(c for c in profile.get("name", "unknown").lower() if c.isalnum()) or "unknown"
+            if liked_dir.is_dir():
+                for folder in sorted(liked_dir.iterdir()):
+                    if folder.is_dir() and f"_{safe}" in folder.name:
+                        candidate = folder / "imgs" / "frame_00.png"
+                        if candidate.is_file():
+                            photo = candidate
+                            break
+        if photo:
+            files.append((f"{profile.get('name', 'unknown')}_frame_00.png", photo.read_bytes()))
 
     embed = {
         "title": "Hinge Auto — Run Complete",
