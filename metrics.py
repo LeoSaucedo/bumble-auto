@@ -14,20 +14,33 @@ from typing import Any
 import config
 
 
-# Sonnet 4.6 pricing per 1M tokens (USD). Update if Anthropic adjusts.
-PRICE_PER_MTOK = {
-    "input_tokens":                3.00,
-    "output_tokens":              15.00,
-    "cache_creation_input_tokens": 3.75,
-    "cache_read_input_tokens":     0.30,
+# Pricing per 1M tokens (USD). Update if providers adjust.
+# Keys match what the judge backend puts in usage.
+PRICING_TABLES: dict[str, dict[str, float]] = {
+    "anthropic": {
+        "input_tokens":                3.00,
+        "output_tokens":              15.00,
+        "cache_creation_input_tokens": 3.75,
+        "cache_read_input_tokens":     0.30,
+    },
+    "gemini": {
+        "input_tokens":   0.075,  # Gemini 3.5 Flash
+        "output_tokens":  0.300,  # Gemini 3.5 Flash
+    },
 }
+
+# Detect which backend is active
+_BACKEND = getattr(config, "JUDGE_BACKEND", "anthropic").lower()
+_PRICING = PRICING_TABLES.get(_BACKEND, PRICING_TABLES["anthropic"])
 
 
 def estimated_cost(usage: dict[str, int]) -> float:
     """Dollar estimate from a usage dict returned by judge()."""
+    if not usage:
+        return 0.0
     return sum(
         usage.get(k, 0) * price / 1_000_000
-        for k, price in PRICE_PER_MTOK.items()
+        for k, price in _PRICING.items()
     )
 
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 # ---------- Mode selection ----------
 # Which `modes/<name>.py` to load. Overridden per-run by `python main.py --mode X`.
-ACTIVE_MODE = "example_lenient"
+ACTIVE_MODE = "carlos"
 
 # These get filled in by _apply_mode() at the bottom of this file. Declared
 # here so static analyzers / IDEs see them. Do not edit by hand — edit the
@@ -48,7 +48,7 @@ DRY_RUN = False
 # run multiple sessions throughout the day. Going much higher per session
 # tends to trigger Hinge's soft-throttle (empty Discover after a burst);
 # spacing batches across the day works better than one giant batch.
-MAX_LIKES_PER_SESSION = 8
+MAX_LIKES_PER_SESSION = 4
 MAX_PROFILES_PER_SESSION = 100
 
 # ---------- Emulator settings ----------
@@ -114,7 +114,7 @@ DELAYS = {
 # "ollama"    -> uses Ollama Cloud (free tier) or local Ollama; lower quality
 #                but no per-token cost.
 # "gemini"    -> uses Gemini via GEMINI_API_KEY; cheapest option.
-JUDGE_BACKEND = "anthropic"
+JUDGE_BACKEND = "gemini"
 
 # ---------- Anthropic settings (when JUDGE_BACKEND == "anthropic") ----------
 # Sonnet is the default — cheaper than Opus and plenty capable for this task.
@@ -139,7 +139,7 @@ OLLAMA_HOST = None
 # GEMINI_API_KEY must be set in .env or environment.
 # Uses gemini-3.1-flash-lite by default (cheapest vision model). Override
 # via GEMINI_MODEL env var or edit the default below.
-GEMINI_MODEL = "gemini-3.1-flash-lite"
+GEMINI_MODEL = "gemini-3.5-flash"
 
 # ---------- Paths ----------
 BASE_DIR = Path(__file__).parent

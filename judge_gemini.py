@@ -70,10 +70,19 @@ def judge(frames: list[bytes]) -> Decision:
     if not candidate.content or not candidate.content.parts:
         raise RuntimeError(f"No content. finish_reason={candidate.finish_reason}")
 
+    # Capture token usage from the response
+    usage = {}
+    if response.usage_metadata:
+        usage = {
+            "input_tokens": response.usage_metadata.prompt_token_count or 0,
+            "output_tokens": response.usage_metadata.candidates_token_count or 0,
+            "total_tokens": response.usage_metadata.total_token_count or 0,
+        }
+
     for part in candidate.content.parts:
         if part.function_call and part.function_call.name == "submit_decision":
             args = {k: v for k, v in part.function_call.args.items()}
-            decision = Decision(**args)
+            decision = Decision(**args, usage=usage)
             enforce_premade_verbatim(decision)
             return decision
 
