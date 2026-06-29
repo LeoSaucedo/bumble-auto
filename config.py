@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 
 # ---------- Mode selection ----------
 # Which `modes/<name>.py` to load. Overridden per-run by `python main.py --mode X`.
-ACTIVE_MODE = "carlos"
+ACTIVE_MODE = "example_lenient"  # override via .env: ACTIVE_MODE=carlos
 
 # These get filled in by _apply_mode() at the bottom of this file. Declared
 # here so static analyzers / IDEs see them. Do not edit by hand — edit the
@@ -61,7 +61,7 @@ DRY_RUN_MESSAGE = False  # override via .env: DRY_RUN_MESSAGE=true
 # run multiple sessions throughout the day. Going much higher per session
 # tends to trigger Hinge's soft-throttle (empty Discover after a burst);
 # spacing batches across the day works better than one giant batch.
-MAX_LIKES_PER_SESSION = 2
+MAX_LIKES_PER_SESSION = 8  # override via .env: MAX_LIKES_PER_SESSION=2
 MAX_PROFILES_PER_SESSION = 100
 
 # ---------- Emulator settings ----------
