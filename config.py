@@ -139,7 +139,7 @@ OLLAMA_HOST = None
 # GEMINI_API_KEY must be set in .env or environment.
 # Uses gemini-3.1-flash-lite by default (cheapest vision model). Override
 # via GEMINI_MODEL env var or edit the default below.
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 
 # ---------- Paths ----------
 BASE_DIR = Path(__file__).parent
