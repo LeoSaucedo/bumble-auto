@@ -106,35 +106,3 @@ def find_comment_input(send_like_xy: tuple[int, int]) -> tuple[int, int]:
     """Comment input sits at a fixed offset above the Send Like button."""
     _, send_y = send_like_xy
     return (int(540 * _S), send_y - int(171 * _S))
-
-
-# ---- Bumble-specific helpers ----
-
-
-def is_match_screen(png: bytes) -> bool:
-    """Check if the current screen is a Bumble match popup.
-
-    Bumble's match screen has a distinctive dark-ish top region with the
-    "What a match!" header and profile photos. Checks pixel brightness in
-    the top-center area. Returns True if the region is dark enough to
-    indicate a match popup vs the bright swiping screen.
-
-    This is a heuristic — tune the threshold and region once you have
-    real match-screen screenshots to test against.
-    """
-    arr = _png_to_array(png)
-    h, w = arr.shape[:2]
-
-    # Sample region: top-center of screen (where match content sits)
-    y0 = int(h * 0.05)
-    y1 = int(h * 0.25)
-    x0 = int(w * 0.25)
-    x1 = int(w * 0.75)
-    region = arr[y0:y1, x0:x1]
-    if region.size == 0:
-        return False
-
-    # Bumble match screen has a semi-dark background (not full brightness)
-    # vs the swiping screen which is mostly white/bright.
-    mean_brightness = region.mean()
-    return mean_brightness < 180

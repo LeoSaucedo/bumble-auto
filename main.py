@@ -60,9 +60,9 @@ def do_like() -> None:
     scrolling through the profile — no need to scroll back up.
     In dry run: advance by skipping instead.
 
-    After tapping the heart, checks for a match popup (the "What a
-    match!" screen with Opening Move prompt) and dismisses it so the
-    bot can continue swiping.
+    After tapping the heart, always taps the match-dismiss area in
+    case we matched (Bumble shows the "What a match!" screen directly).
+    If no match screen appeared, the tap lands harmlessly.
     """
     if config.DRY_RUN:
         do_skip()
@@ -71,12 +71,10 @@ def do_like() -> None:
     adb.tap(x, y)
     adb.jitter_sleep("after_like_sent")
 
-    # Check if we matched — dismiss the match screen
-    if vision.is_match_screen(adb.screenshot()):
-        print("Match screen detected — dismissing.")
-        dx, dy = config.COORDS["match_dismiss"]
-        adb.tap(dx, dy)
-        adb.jitter_sleep("after_tap")
+    # Always attempt to dismiss a potential match popup
+    dx, dy = config.COORDS["match_dismiss"]
+    adb.tap(dx, dy)
+    adb.jitter_sleep("after_tap")
 
 
 def save_error_screenshot(context: str) -> None:
