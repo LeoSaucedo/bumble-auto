@@ -35,7 +35,6 @@ from judge_common import (
     DECIDE_INPUT_SCHEMA,
     Decision,
     build_system_prompt,
-    enforce_premade_verbatim,
 )
 
 
@@ -150,7 +149,6 @@ def judge(frames: list[bytes]) -> Decision:
             except json.JSONDecodeError:
                 args = {}
         decision = _decision_from_args(args, usage)
-        enforce_premade_verbatim(decision)
         return decision
 
     # Fallback: some models return JSON in `content` instead of a tool call
@@ -166,7 +164,6 @@ def judge(frames: list[bytes]) -> Decision:
             try:
                 data = json.loads(content[start : end + 1])
                 decision = _decision_from_args(data, usage)
-                enforce_premade_verbatim(decision)
                 return decision
             except json.JSONDecodeError:
                 pass
