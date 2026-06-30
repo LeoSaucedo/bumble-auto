@@ -40,7 +40,11 @@ def _profile_region_hash(png: bytes) -> str:
 
 
 def capture_profile() -> list[bytes]:
-    """Scroll through the current profile, returning a list of PNG frames."""
+    """Scroll through the current profile, returning a list of PNG frames.
+
+    Takes FRAMES_PER_PROFILE screenshots with scrolls between, then does
+    one final scroll to reach the bottom action buttons.
+    """
     frames: list[bytes] = []
     frames.append(adb.screenshot())
     adb.jitter_sleep("after_screenshot")
@@ -51,25 +55,55 @@ def capture_profile() -> list[bytes]:
         frames.append(adb.screenshot())
         adb.jitter_sleep("after_screenshot")
 
+    # Final scroll to reach the like/skip buttons at the bottom
+    adb.scroll_down()
+    adb.jitter_sleep("after_scroll")
+
     return frames
 
 
+def do_skip() -> None:
+    """Swipe left to skip the profile.
+
+    Always swipes, even in dry run — advancing is needed for the loop
+    to see new profiles. Start/end positions and duration are jittered
+    to avoid looking robotic.
+    """
+    c = config.COORDS
+    scale = random.uniform(0.85, 1.15)
+    # Jitter start/end positions slightly (up to ±20px)
+    jitter = lambda: random.randint(-15, 15)
+    sx = int(c["swipe_skip_from"][0] + jitter())
+    sy = int(c["swipe_skip_from"][1] + jitter())
+    ex = int(c["swipe_skip_to"][0] + jitter())
+    ey = int(c["swipe_skip_to"][1] + jitter())
+    dur = int(c["swipe_duration_ms"] * scale)
+    adb.swipe(sx, sy, ex, ey, dur)
+    adb.jitter_sleep("after_skip")
+
+
 def do_like() -> None:
-    """Tap the heart (like) button at the bottom of the profile.
+    """Swipe right to like the profile.
 
-    On Bumble, the heart and X buttons are always at the bottom after
-    scrolling through the profile — no need to scroll back up.
-    In dry run: advance by skipping instead.
+    In dry run: swipe left instead (advance without spending a like).
 
-    After tapping the heart, always taps the match-dismiss area in
-    case we matched (Bumble shows the "What a match!" screen directly).
+    After the swipe, taps the match-dismiss area in case we matched
+    (Bumble shows the "What a match!" screen after matching).
     If no match screen appeared, the tap lands harmlessly.
+    Start/end positions and duration are jittered to avoid looking robotic.
     """
     if config.DRY_RUN:
         do_skip()
         return
-    x, y = config.COORDS["like_button"]
-    adb.tap(x, y)
+    c = config.COORDS
+    scale = random.uniform(0.85, 1.15)
+    jitter = lambda: random.randint(-15, 15)
+    sx = int(c["swipe_like_from"][0] + jitter())
+    sy = int(c["swipe_like_from"][1] + jitter())
+    ex = int(c["swipe_like_to"][0] + jitter())
+    ey = int(c["swipe_like_to"][1] + jitter())
+    dur = int(c["swipe_duration_ms"] * scale)
+    adb.swipe(sx, sy, ex, ey, dur)
     adb.jitter_sleep("after_like_sent")
 
     # Always attempt to dismiss a potential match popup
