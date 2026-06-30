@@ -1,6 +1,6 @@
-"""HingeAuto orchestrator.
+"""BumbleAuto orchestrator.
 
-Loop: capture profile frames -> ask Claude -> tap like or skip -> repeat.
+Loop: capture profile frames -> ask model -> tap like or skip -> repeat.
 """
 
 import argparse
@@ -41,6 +41,7 @@ def _profile_region_hash(png: bytes) -> str:
 
 def capture_profile() -> list[bytes]:
     """Scroll through the current profile, returning a list of PNG frames."""
+    frames: list[bytes] = []
     frames.append(adb.screenshot())
     adb.jitter_sleep("after_screenshot")
 
