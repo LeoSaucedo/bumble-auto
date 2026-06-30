@@ -1,7 +1,7 @@
 """Post run results to Discord via webhook.
 
 Requires DISCORD_WEBHOOK_URL in the environment. No-op when unset.
-Sends a stats embed + profile photos.
+Sends a stats embed with profile photos attached.
 """
 
 import json
@@ -20,14 +20,16 @@ def _send_multipart_payload(webhook_url: str, payload: dict,
                              files: list[tuple[str, bytes]]) -> None:
     """Send a Discord webhook payload with optional file attachments.
 
-    Uses multipart/form-data so files appear as message attachments.
+    Uses multipart/form-data so files appear as message attachments in
+    the same message as the embed. Requires User-Agent header — Discord
+    blocks Python's default urllib user-agent.
     """
     import uuid
     boundary = uuid.uuid4().hex
 
     body_parts = []
 
-    # payload_json field
+    # payload_json field (the embed and attachment metadata)
     body_parts.append(
         f"--{boundary}\r\n"
         f'Content-Disposition: form-data; name="payload_json"\r\n'
@@ -35,7 +37,7 @@ def _send_multipart_payload(webhook_url: str, payload: dict,
         f"{json.dumps(payload)}\r\n"
     )
 
-    # File fields
+    # File fields — one per profile photo
     for i, (filename, data) in enumerate(files):
         body_parts.append(
             f"--{boundary}\r\n"
@@ -72,11 +74,15 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
              liked_profiles: list[dict] | None = None) -> None:
     """Post a stats embed + profile photos to the configured webhook.
 
+    Only uploads photos for profiles swiped right in this run (from
+    *liked_profiles*). Uses exact folder names to avoid mismatches when
+    two profiles share a name.
+
     Reads DISCORD_WEBHOOK_URL from the environment. No-op when unset.
     """
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
     if not webhook_url:
-        return  # silent no-op
+        return  # silent no-op — webhook is optional
 
     liked_profiles = liked_profiles or []
 
@@ -87,8 +93,6 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
 
     for i, profile in enumerate(liked_profiles):
         name = profile.get("name", "unknown").capitalize()
-        safe = "".join(c for c in name.lower() if c.isalnum()) or "unknown"
-
         profile_texts.append(f"{i + 1}. **{name}**")
 
         # Find & read the first photo using exact folder name
@@ -120,7 +124,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
             {"name": "❤️ Likes", "value": str(likes_sent),    "inline": True},
             {"name": "⏭️ Skip",  "value": str(skips),         "inline": True},
             {
-                "name": "Profiles Liked",
+                "name": "Swiped Right",
                 "value": "\n".join(profile_texts) if profile_texts else "None",
                 "inline": False,
             },
