@@ -203,7 +203,7 @@ def main() -> int:
 
     # Wake screen and launch Hinge
     adb.wake_screen()
-    adb.launch_app("co.hinge.app")
+    adb.launch_app("com.bumble.app")
     # Tap the Discover tab to ensure we're on the main profile feed
     adb.tap(73, 1468)
     time.sleep(2)
@@ -366,7 +366,7 @@ def main() -> int:
 
     # Cleanup: force-stop Hinge so next run starts fresh regardless of app state,
     # then turn screen off.
-    adb.force_stop_app("co.hinge.app")
+    adb.force_stop_app("com.bumble.app")
     adb.turn_screen_off()
     return 0
 
