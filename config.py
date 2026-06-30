@@ -75,16 +75,16 @@ COORDS = {
     # Swipe action targets (bottom of profile after scrolling through).
     # On Bumble, the heart (like) and X (skip) buttons are always at the
     # bottom after scrolling through all profile photos and prompts.
-    "skip_button":       (180, 1400),   # X icon (placeholder)
-    "like_button":       (540, 1400),   # Heart icon (placeholder)
+    "skip_button":       (126, 998),   # X icon (calibrated 2026-06-29)
+    "like_button":       (595, 1000),  # Heart icon (calibrated 2026-06-29)
 
     # Scroll gesture (swipe up = scroll down through profile).
     "scroll_from":       (360, 1125),
-    "scroll_to":         (360, 465),
+    "scroll_to":         (360, 765),
     "scroll_duration_ms": 350,
 
-    # Match popup dismiss (top-right corner X after matching).
-    "match_dismiss":     (650, 60),    # placeholder
+    # Match popup dismiss (top-left X after matching).
+    "match_dismiss":     (48, 95),     # calibrated 2026-06-29
 
     # Bottom nav icons.
     "nav_swipe":         (180, 1498),
