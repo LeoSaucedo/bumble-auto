@@ -87,7 +87,7 @@ COORDS = {
     "match_dismiss":     (48, 95),     # calibrated 2026-06-29
 
     # Bottom nav icons.
-    "nav_swipe":         (180, 1498),
+    "nav_swipe":         (360, 1498),
     # --- todo: fill remaining nav coords ---
 }
 

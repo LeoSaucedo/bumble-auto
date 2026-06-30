@@ -205,8 +205,9 @@ def main() -> int:
     # Wake screen and launch Hinge
     adb.wake_screen()
     adb.launch_app("com.bumble.app")
-    # Tap the Discover tab to ensure we're on the main profile feed
-    adb.tap(73, 1468)
+    # Tap the center nav to ensure we're on the main swipe feed
+    nx, ny = config.COORDS["nav_swipe"]
+    adb.tap(nx, ny)
     time.sleep(2)
 
     likes_sent = 0
