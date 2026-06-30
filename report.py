@@ -160,6 +160,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
                 "fields": [
                     {"name": "Swiped Right", "value": profile_lines, "inline": False},
                 ],
+                "footer": {"text": f"${total_cost:.2f} · {total_duration_s:.0f}s"},
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
             }
 
