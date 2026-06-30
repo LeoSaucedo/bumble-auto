@@ -12,7 +12,7 @@ from typing import Any
 import config
 
 
-SYSTEM_PROMPT_TEMPLATE = """You are evaluating Hinge dating profiles on behalf of the user.
+SYSTEM_PROMPT_TEMPLATE = """You are evaluating Bumble dating profiles on behalf of the user.
 
 The user's preferences:
 {preferences}
@@ -21,43 +21,24 @@ You will be shown a sequence of screenshots representing a single profile, in
 order from top to bottom. The profile may include photos, prompt responses
 (short text), and basic info (age, height, location, job, education, etc.).
 
-Decide LIKE or SKIP based on the user's preferences. Be reasonably selective —
-don't like profiles that clearly don't match, but don't be unreasonably picky
-either. When the profile is genuinely ambiguous, lean SKIP.
+Decide SWIPE RIGHT or SWIPE LEFT based on the user's preferences. Be generous
+with right-swipes — the bar should be "would I potentially go on a date with
+this person?" not "is this my dream partner?" When genuinely on the fence, lean
+SWIPE RIGHT.
 
-{message_voice}
-{premades_section}
+{volume_guidance}
 Submit your decision via the submit_decision tool."""
 
 
-# Generic, voice-neutral fallback used when the active mode does not set
-# MESSAGE_VOICE. Replace by writing a voice file under voice/<name>.py
-# and pointing your mode at it.
-DEFAULT_MESSAGE_VOICE = """## Message rubric (when decision == "like")
+DEFAULT_VOLUME_GUIDANCE = """## Swipe volume
 
-Write a short opener that goes out with the like.
-
-Aim for: one specific reference to something visible in the profile (a
-prompt answer or a concrete photo detail), followed by a short question
-about it. Keep it friendly and curious. Around 60-120 characters total.
-
-Constraints:
-- Plain ASCII only. No emoji, no smart quotes, no em-dashes.
-- Avoid the characters \\, ", $, ` — they break the typing layer.
-- Empty string when decision == "skip".
-- If you'd lean LIKE but cannot write a specific, non-generic opener,
-  output the empty string for `message` and set `message_archetype` to
-  "empty". A like with no message is acceptable.
-
-This is the GENERIC fallback voice. Most users will want to override it
-by setting `MESSAGE_VOICE` in their mode file (or pointing it at a
-template under voice/). See voice/example_casual.py and
-voice/example_polished.py for two contrasting starting points."""
+Aim to swipe right on roughly half the profiles you see. If you've been
+swiping left a lot, loosen up. If you've been swiping right on every profile,
+be more selective. The goal is volume with some quality filtering — not
+perfectionism."""
 
 
-# JSON schema for the submit_decision tool. Backends wrap this in their
-# own tool-spec envelope (Anthropic uses `input_schema`, Ollama uses
-# OpenAI-compatible `parameters`).
+# JSON schema for the submit_decision tool.
 DECIDE_INPUT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -73,7 +54,7 @@ DECIDE_INPUT_SCHEMA = {
         "decision": {
             "type": "string",
             "enum": ["like", "skip"],
-            "description": "Whether to like or skip this profile.",
+            "description": "SWIPE RIGHT ('like') or SWIPE LEFT ('skip').",
         },
         "confidence": {
             "type": "string",
@@ -83,80 +64,24 @@ DECIDE_INPUT_SCHEMA = {
         "reasoning": {
             "type": "string",
             "description": (
-                "One or two sentences explaining the decision. Reference "
-                "specific details from the profile (e.g., a prompt answer, "
-                "an activity in a photo, the bio/info line)."
-            ),
-        },
-        "message": {
-            "type": "string",
-            "description": (
-                "The opener to send with the like. Required when "
-                "decision == \"like\"; use empty string when skipping. "
-                "Max ~150 chars, plain ASCII, no emoji. See the message "
-                "rubric in the system prompt."
+                "One sentence explaining the decision. Reference "
+                "specific details from the profile."
             ),
         },
         "skip_reason": {
             "type": "string",
             "enum": ["none", "age", "preferences", "low_effort", "other"],
             "description": (
-                "Categorical skip reason for downstream analytics. "
-                "Use \"none\" when decision == \"like\". "
-                "\"age\" when the AGE GATE clause triggered the skip. "
-                "\"preferences\" when a specific PREFERENCES rule fired. "
-                "\"low_effort\" when the profile was too thin to engage "
-                "with (no readable prompts, single photo, etc.). "
+                "Categorical skip reason. \"none\" when decision == \"like\". "
+                "\"age\" when AGE GATE triggered. "
+                "\"preferences\" when a PREFERENCES rule fired. "
+                "\"low_effort\" when the profile is too thin to evaluate. "
                 "\"other\" only if nothing else fits."
-            ),
-        },
-        "message_archetype": {
-            "type": "string",
-            "enum": [
-                "empty",
-                "observation_question",
-                "prompt_callback",
-                "photo_callback",
-                "tease",
-                "premade",
-                "other",
-            ],
-            "description": (
-                "Categorical label for the message style. "
-                "\"observation_question\" = specific detail + a question. "
-                "\"prompt_callback\" = references a prompt with no question. "
-                "\"photo_callback\" = references a photo detail with no "
-                "question. \"tease\" = mild playful disagreement. "
-                "\"premade\" when the message is a verbatim copy of one of "
-                "the mode's premade openers (set premade_id too). "
-                "\"empty\" when the message is empty (skip OR a like with "
-                "no opener). \"other\" only when nothing else fits."
-            ),
-        },
-        "premade_id": {
-            "type": "string",
-            "description": (
-                "Id of the premade opener used, when message_archetype == "
-                "\"premade\". Must match one of the ids listed in the "
-                "Premade openers section of the system prompt. Empty "
-                "string when the message was written fresh or is empty."
-            ),
-        },
-        "prompt_referenced": {
-            "type": "string",
-            "description": (
-                "Short label (under 50 chars) of the prompt or photo "
-                "detail the message references, e.g. \"travel prompt\", "
-                "\"sunset photo 1\". Empty string when message is empty "
-                "or when using a premade that doesn't reference a specific "
-                "profile detail."
             ),
         },
     },
     "required": [
-        "name", "decision", "confidence", "reasoning", "message",
-        "skip_reason", "message_archetype", "premade_id",
-        "prompt_referenced",
+        "name", "decision", "confidence", "reasoning", "skip_reason",
     ],
 }
 
@@ -167,80 +92,8 @@ class Decision:
     decision: str  # "like" | "skip"
     confidence: str  # "low" | "medium" | "high"
     reasoning: str
-    message: str = ""
     skip_reason: str = "none"
-    message_archetype: str = "empty"
-    premade_id: str = ""
-    prompt_referenced: str = ""
     usage: dict[str, Any] = field(default_factory=dict)
-
-
-def resolve_voice(voice: str | None) -> str:
-    """Resolve the active mode's MESSAGE_VOICE into a prompt string.
-
-    Three shapes accepted:
-      - None        -> use DEFAULT_MESSAGE_VOICE
-      - "<name>"    -> single-token name; load voice/<name>.py and read
-                       its MESSAGE_VOICE module attribute
-      - "...\\n..." -> multi-line literal; passed through as-is
-    """
-    if voice is None:
-        return DEFAULT_MESSAGE_VOICE
-    stripped = voice.strip()
-    is_name = (
-        stripped
-        and "\n" not in stripped
-        and " " not in stripped
-        and len(stripped) <= 64
-        and all(c.isalnum() or c in "_-" for c in stripped)
-    )
-    if is_name:
-        try:
-            import importlib
-            mod = importlib.import_module(f"voice.{stripped}")
-        except ModuleNotFoundError as e:
-            raise RuntimeError(
-                f"MESSAGE_VOICE={stripped!r} but voice/{stripped}.py not found. "
-                f"Create it (see voice/example_casual.py) or use a multi-line "
-                f"string for MESSAGE_VOICE instead."
-            ) from e
-        msg = getattr(mod, "MESSAGE_VOICE", None)
-        if not isinstance(msg, str) or not msg.strip():
-            raise RuntimeError(
-                f"voice/{stripped}.py must export a non-empty MESSAGE_VOICE string."
-            )
-        return msg
-    return voice
-
-
-def _premades_section(premades: list[dict]) -> str:
-    if not premades:
-        return ""
-    lines = [
-        "",
-        "## Premade openers (verbatim, mode-specific)",
-        "",
-        "Instead of writing a fresh opener, you may select one of the following "
-        "pre-written messages. Each has explicit guidance for when to use it. "
-        "Premades bypass the voice rules above — they are sent EXACTLY as "
-        "written, including capitalization and punctuation. If you select a "
-        "premade:",
-        '  - set `premade_id` to its id',
-        '  - set `message` to the premade\'s text VERBATIM (copy character-for-character)',
-        '  - set `message_archetype` to "premade"',
-        "",
-        "If no premade fits the profile, write a fresh opener per the voice "
-        "rules above and leave `premade_id` as an empty string.",
-        "",
-        "Available premades:",
-        "",
-    ]
-    for i, p in enumerate(premades, 1):
-        lines.append(f'{i}. id: "{p["id"]}"')
-        lines.append(f'   message (verbatim): {p["message"]!r}')
-        lines.append(f'   use_when: {p["use_when"]}')
-        lines.append("")
-    return "\n".join(lines)
 
 
 def _age_clause(age_min: int | None, age_max: int | None) -> str:
@@ -249,40 +102,22 @@ def _age_clause(age_min: int | None, age_max: int | None) -> str:
     lo = age_min if age_min is not None else 18
     hi = age_max if age_max is not None else 99
     return (
-        f"\nAGE GATE: only LIKE if the profile's stated age is between "
-        f"{lo} and {hi} inclusive. Hinge shows age in basic-info "
-        f"(\"NN\" next to height/location). If age is visible and out of "
-        f"range, decision=skip, skip_reason=\"age\", message=\"\". If age "
-        f"genuinely isn't visible across any frame, proceed with the normal "
-        f"rubric.\n"
+        f"\nAGE GATE: only SWIPE RIGHT if the profile's stated age is "
+        f"between {lo} and {hi} inclusive. If age is visible and out of "
+        f"range, decision=skip, skip_reason=\"age\". If age genuinely "
+        f"isn't visible across any frame, proceed with the normal rubric.\n"
     )
 
 
 def build_system_prompt() -> str:
+    volume = getattr(config, "SWIPE_VOLUME_GUIDANCE", None)
+    if volume is None:
+        volume = DEFAULT_VOLUME_GUIDANCE
     return SYSTEM_PROMPT_TEMPLATE.format(
         preferences=config.PREFERENCES.strip(),
         age_clause=_age_clause(config.AGE_MIN, config.AGE_MAX),
-        message_voice=resolve_voice(config.MESSAGE_VOICE).strip(),
-        premades_section=_premades_section(config.PREMADES),
+        volume_guidance=volume.strip(),
     )
-
-
-def enforce_premade_verbatim(decision: Decision) -> None:
-    """If the model picked a premade by id, overwrite `message` with the
-    canonical text so character drift can't leak. Unknown ids are
-    cleared so the message goes out as-written."""
-    if not decision.premade_id:
-        return
-    for p in config.PREMADES:
-        if p["id"] == decision.premade_id:
-            decision.message = p["message"]
-            decision.message_archetype = "premade"
-            return
-    print(
-        f"[judge] warning: unknown premade_id={decision.premade_id!r}, "
-        f"clearing and treating message as fresh"
-    )
-    decision.premade_id = ""
 
 
 def load_backend():

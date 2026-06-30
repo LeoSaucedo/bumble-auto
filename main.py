@@ -1,6 +1,6 @@
-"""HingeAuto orchestrator.
+"""BumbleAuto orchestrator.
 
-Loop: capture profile frames -> ask Claude -> tap like or skip -> repeat.
+Loop: capture profile frames -> ask model -> tap like or skip -> repeat.
 """
 
 import argparse
@@ -41,13 +41,7 @@ def _profile_region_hash(png: bytes) -> str:
 
 def capture_profile() -> list[bytes]:
     """Scroll through the current profile, returning a list of PNG frames."""
-    # Defensive: new profiles load at the top, so this is just guarding
-    # against the app being mid-scroll from a prior partial action. A
-    # handful of swipes is enough — full 18-swipe sweep isn't needed
-    # because we aren't recovering from a 7-frame scroll-down.
-    scroll_back_to_top(swipes=random.randint(3, 8))
-
-    frames = []
+    frames: list[bytes] = []
     frames.append(adb.screenshot())
     adb.jitter_sleep("after_screenshot")
 
@@ -60,111 +54,28 @@ def capture_profile() -> list[bytes]:
     return frames
 
 
-def scroll_back_to_top(swipes: int | None = None) -> None:
-    """Scroll back to the top of the profile.
+def do_like() -> None:
+    """Tap the heart (like) button at the bottom of the profile.
 
-    Hinge uses momentum scrolling; each swipe's actual travel is much less
-    than the gesture's pixel distance. Default `swipes` is `FRAMES_PER_PROFILE
-    * 2 + 4` (18 with FRAMES=7) — enough to recover from a full scroll-down
-    through the profile. Pass a smaller `swipes` for defensive top-scrolls
-    where the profile is already at or near the top.
-    """
-    if swipes is None:
-        swipes = config.FRAMES_PER_PROFILE * 2 + 4
-    for _ in range(swipes):
-        adb.scroll_up()
-        adb.jitter_sleep("after_scroll")
+    On Bumble, the heart and X buttons are always at the bottom after
+    scrolling through the profile — no need to scroll back up.
+    In dry run: advance by skipping instead.
 
-
-def do_skip() -> None:
-    """Tap the X to advance to the next profile. Always taps (even in dry run);
-    advancing is needed for the loop to see new profiles."""
-    x, y = config.COORDS["skip_button"]
-    adb.tap(x, y)
-    adb.jitter_sleep("after_skip")
-
-
-def do_like(message: str = "") -> None:
-    """In live mode: scroll to top, tap heart, type message (if any), tap Send Like.
-    In dry run: advance by skipping (so we never send an actual like).
-
-    Send Like / comment input positions are found at tap-time via vision —
-    the compose card anchors to whichever heart was tapped and shifts per
-    profile, so static COORDS don't survive across profiles.
+    After tapping the heart, always taps the match-dismiss area in
+    case we matched (Bumble shows the "What a match!" screen directly).
+    If no match screen appeared, the tap lands harmlessly.
     """
     if config.DRY_RUN:
         do_skip()
         return
-    # Scroll back to the top before tapping a heart. The compose box
-    # anchors to the tapped element and extends DOWNWARD — if we tap
-    # a heart that's already low on screen (which it is after capture),
-    # Send Like ends up off-screen and undetectable. Worth the ~14s.
-    scroll_back_to_top()
-    heart_xy = vision.find_first_heart(adb.screenshot())
-    if heart_xy is None:
-        # Static fallback used to fire here, but it silently misses on
-        # profiles where the heart's real position differs from the
-        # calibrated coord (different layouts, partial scroll-back). The
-        # loop would then type/tap into the void and never advance,
-        # producing an infinite-loop on the same profile. Bail to skip
-        # instead so the profile advances and the loop survives.
-        save_error_screenshot("heart-not-found")
-        raise RuntimeError("vision: couldn't find photo-1 heart after scroll-back")
-    adb.tap(*heart_xy)
-    adb.jitter_sleep("after_tap")
-
-    send_xy = vision.find_send_like(adb.screenshot())
-    if send_xy is None and adb.dismiss_keyboard_if_visible():
-        # Hinge sometimes auto-focuses the comment field when the compose
-        # card opens, popping the keyboard and covering Send Like.
-        print("Keyboard was blocking initial Send Like — dismissed and retrying.")
-        send_xy = vision.find_send_like(adb.screenshot())
-    if send_xy is None:
-        # Same reasoning as the heart fallback above — silent fallback
-        # masks a real failure and traps the loop. Skip instead.
-        save_error_screenshot("send-like-not-found")
-        raise RuntimeError("vision: couldn't find Send Like after heart tap")
-    comment_xy = vision.find_comment_input(send_xy)
-
-    if config.DRY_RUN_MESSAGE and message:
-        print(f"DRY_RUN_MESSAGE: would send '{message}' — sending like without it.")
-
-    if message and not config.DRY_RUN_MESSAGE:
-        adb.tap(*comment_xy)
-        adb.jitter_sleep("after_tap")
-        # Snapshot empty-field text-pixel baseline so we can detect when
-        # the typed text has actually landed in the EditText buffer.
-        empty_pixels = vision.comment_field_text_pixels(adb.screenshot(), send_xy)
-        adb.input_text(message)
-        # Poll for the field to fill. Under host CPU contention (e.g. a
-        # game running alongside the emulator) `input text` events can
-        # dispatch slower than expected — short fixed waits drop chars.
-        # Expected pixel count grows with message length; require we see
-        # well above the empty baseline before sending.
-        deadline = time.monotonic() + 15
-        target_pixels = empty_pixels + max(150, 20 * len(message))
-        while time.monotonic() < deadline:
-            time.sleep(1.0)
-            current = vision.comment_field_text_pixels(adb.screenshot(), send_xy)
-            if current >= target_pixels:
-                break
-        else:
-            print(f"WARN: typed text didn't reach expected pixel density "
-                  f"(have {current}, want {target_pixels}) — sending anyway.")
-        # Typed text can wrap to multiple lines, expanding the comment
-        # field and pushing Send Like down. Re-find against the post-type
-        # screen so the tap lands on the actual button position.
-        #
-        # If Send Like isn't visible, the keyboard may be covering it —
-        # safely dismiss the keyboard (only if confirmed visible) and retry.
-        post_type_xy = vision.find_send_like(adb.screenshot())
-        if post_type_xy is None and adb.dismiss_keyboard_if_visible():
-            print("Keyboard was blocking Send Like — dismissed and retrying.")
-            post_type_xy = vision.find_send_like(adb.screenshot())
-        if post_type_xy is not None:
-            send_xy = post_type_xy
-    adb.tap(*send_xy)
+    x, y = config.COORDS["like_button"]
+    adb.tap(x, y)
     adb.jitter_sleep("after_like_sent")
+
+    # Always attempt to dismiss a potential match popup
+    dx, dy = config.COORDS["match_dismiss"]
+    adb.tap(dx, dy)
+    adb.jitter_sleep("after_tap")
 
 
 def save_error_screenshot(context: str) -> None:
@@ -195,9 +106,6 @@ def save_debug(frames: list[bytes], decision, profile_idx: int) -> str | None:
         f"decision: {decision.decision}\n"
         f"confidence: {decision.confidence}\n"
         f"reasoning: {decision.reasoning}\n"
-        f"message: {decision.message}\n"
-        f"message_archetype: {decision.message_archetype}\n"
-        f"prompt_referenced: {decision.prompt_referenced}\n"
         f"skip_reason: {decision.skip_reason}\n"
         f"timestamp: {datetime.now().isoformat(timespec='seconds')}\n"
     )
@@ -205,7 +113,7 @@ def save_debug(frames: list[bytes], decision, profile_idx: int) -> str | None:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="HingeAuto loop runner")
+    p = argparse.ArgumentParser(description="BumbleAuto loop runner")
     p.add_argument(
         "--mode",
         default=None,
@@ -222,16 +130,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--location",
         default=None,
-        help="Before looping, change Hinge's 'My neighborhood' to the "
+        help="Before looping, change Bumble's 'My neighborhood' to the "
              "named city (resolved via locations.json). Orthogonal to "
-             "--mode. Requires location_coords.json + Hinge+/X for "
+             "--mode. Requires location_coords.json + Bumble Premium for "
              "out-of-area changes.",
     )
     p.add_argument(
         "--rotate",
         default=None,
         help="Named rotation path from locations.json _rotations (e.g. "
-             "'atl'). When Hinge's 'You've seen everyone' screen appears, "
+             "'atl'). When Bumble's empty-stack screen screen appears, "
              "advance to the next city in the rotation. Loops back to "
              "start when exhausted.",
     )
@@ -255,8 +163,6 @@ def main() -> int:
     )
     print(f"Mode:     {config.MODE_NAME} ({age_band})")
     print(f"Run:      {'DRY RUN (no taps)' if config.DRY_RUN else 'LIVE (will tap)'}")
-    if config.DRY_RUN_MESSAGE:
-        print(f"Messages:  DRY RUN (generated but not sent)")
     session_like_cap = random.randint(
         config.SESSION_LIKE_MIN,
         config.MAX_LIKES_PER_SESSION,
@@ -298,9 +204,10 @@ def main() -> int:
 
     # Wake screen and launch Hinge
     adb.wake_screen()
-    adb.launch_app("co.hinge.app")
-    # Tap the Discover tab to ensure we're on the main profile feed
-    adb.tap(73, 1468)
+    adb.launch_app("com.bumble.app")
+    # Tap the center nav to ensure we're on the main swipe feed
+    nx, ny = config.COORDS["nav_swipe"]
+    adb.tap(nx, ny)
     time.sleep(2)
 
     likes_sent = 0
@@ -400,7 +307,7 @@ def main() -> int:
                     time.sleep(5 * (attempt + 1))
         if fatal_error is not None:
             print(f"\nFATAL judge error — halting loop instead of burning "
-                  f"Hinge swipes:\n  {fatal_error}")
+                  f"Bumble swipes:\n  {fatal_error}")
             break
         t_judge = time.monotonic() - t1
         if decision is None:
@@ -410,19 +317,16 @@ def main() -> int:
 
         print(f"Name:     {decision.name}")
         print(f"Decision: {decision.decision} ({decision.confidence}) "
-              f"[{decision.skip_reason if decision.decision == 'skip' else decision.message_archetype}]")
+              f"[{decision.skip_reason if decision.decision == 'skip' else 'swiped'}]")
         print(f"Reason:   {decision.reasoning}")
-        if decision.message:
-            print(f"Message:  {decision.message}")
         folder_name = save_debug(frames, decision, profiles_seen)
 
         t2 = time.monotonic()
         if decision.decision == "like":
             try:
-                do_like(decision.message)
+                do_like()
                 liked_profiles.append({
                     "name": decision.name,
-                    "message": decision.message,
                     "index": profiles_seen,
                     "folder": folder_name,
                 })
@@ -464,7 +368,7 @@ def main() -> int:
 
     # Cleanup: force-stop Hinge so next run starts fresh regardless of app state,
     # then turn screen off.
-    adb.force_stop_app("co.hinge.app")
+    adb.force_stop_app("com.bumble.app")
     adb.turn_screen_off()
     return 0
 

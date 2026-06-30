@@ -18,13 +18,11 @@ from judge_common import (
     DECIDE_INPUT_SCHEMA,
     Decision,
     build_system_prompt,
-    enforce_premade_verbatim,
 )
-
 
 DECIDE_DECLARATION = types.FunctionDeclaration(
     name="submit_decision",
-    description="Submit a like/skip decision for this Hinge profile.",
+    description="Submit a like/skip decision for this Bumble profile.",
     parameters=DECIDE_INPUT_SCHEMA,
 )
 
@@ -83,7 +81,6 @@ def judge(frames: list[bytes]) -> Decision:
         if part.function_call and part.function_call.name == "submit_decision":
             args = {k: v for k, v in part.function_call.args.items()}
             decision = Decision(**args, usage=usage)
-            enforce_premade_verbatim(decision)
             return decision
 
     raise RuntimeError(

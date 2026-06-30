@@ -36,3 +36,6 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+modes/carlos.py
+voice/
+test_webhook.py
