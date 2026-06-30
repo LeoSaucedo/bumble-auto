@@ -78,10 +78,20 @@ COORDS = {
     "skip_button":       (126, 998),   # X icon (calibrated 2026-06-29)
     "like_button":       (595, 1000),  # Heart icon (calibrated 2026-06-29)
 
+    # Swipe gesture coords (horizontal swipe instead of button taps).
+    # Swipe at vertical center of screen (y=800 on 720x1600).
+    # 80% of width (576) → 20% (144) for swipe left (skip).
+    # 20% (144) → 80% (576) for swipe right (like).
+    "swipe_skip_from":   (576, 800),
+    "swipe_skip_to":     (144, 800),
+    "swipe_like_from":   (144, 800),
+    "swipe_like_to":     (576, 800),
+    "swipe_duration_ms": 200,
+
     # Scroll gesture (swipe up = scroll down through profile).
     "scroll_from":       (360, 1125),
-    "scroll_to":         (360, 765),
-    "scroll_duration_ms": 350,
+    "scroll_to":         (360, 375),
+    "scroll_duration_ms": 500,
 
     # Match popup dismiss (top-left X after matching).
     "match_dismiss":     (48, 95),     # calibrated 2026-06-29
