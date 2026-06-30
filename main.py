@@ -66,12 +66,19 @@ def do_skip() -> None:
     """Swipe left to skip the profile.
 
     Always swipes, even in dry run — advancing is needed for the loop
-    to see new profiles.
+    to see new profiles. Start/end positions and duration are jittered
+    to avoid looking robotic.
     """
     c = config.COORDS
-    adb.swipe(c["swipe_skip_from"][0], c["swipe_skip_from"][1],
-              c["swipe_skip_to"][0],   c["swipe_skip_to"][1],
-              c["swipe_duration_ms"])
+    scale = random.uniform(0.85, 1.15)
+    # Jitter start/end positions slightly (up to ±20px)
+    jitter = lambda: random.randint(-15, 15)
+    sx = int(c["swipe_skip_from"][0] + jitter())
+    sy = int(c["swipe_skip_from"][1] + jitter())
+    ex = int(c["swipe_skip_to"][0] + jitter())
+    ey = int(c["swipe_skip_to"][1] + jitter())
+    dur = int(c["swipe_duration_ms"] * scale)
+    adb.swipe(sx, sy, ex, ey, dur)
     adb.jitter_sleep("after_skip")
 
 
@@ -83,14 +90,20 @@ def do_like() -> None:
     After the swipe, taps the match-dismiss area in case we matched
     (Bumble shows the "What a match!" screen after matching).
     If no match screen appeared, the tap lands harmlessly.
+    Start/end positions and duration are jittered to avoid looking robotic.
     """
     if config.DRY_RUN:
         do_skip()
         return
     c = config.COORDS
-    adb.swipe(c["swipe_like_from"][0], c["swipe_like_from"][1],
-              c["swipe_like_to"][0],   c["swipe_like_to"][1],
-              c["swipe_duration_ms"])
+    scale = random.uniform(0.85, 1.15)
+    jitter = lambda: random.randint(-15, 15)
+    sx = int(c["swipe_like_from"][0] + jitter())
+    sy = int(c["swipe_like_from"][1] + jitter())
+    ex = int(c["swipe_like_to"][0] + jitter())
+    ey = int(c["swipe_like_to"][1] + jitter())
+    dur = int(c["swipe_duration_ms"] * scale)
+    adb.swipe(sx, sy, ex, ey, dur)
     adb.jitter_sleep("after_like_sent")
 
     # Always attempt to dismiss a potential match popup
