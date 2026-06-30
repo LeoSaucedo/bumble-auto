@@ -59,6 +59,10 @@ def do_like() -> None:
     On Bumble, the heart and X buttons are always at the bottom after
     scrolling through the profile — no need to scroll back up.
     In dry run: advance by skipping instead.
+
+    After tapping the heart, checks for a match popup (the "What a
+    match!" screen with Opening Move prompt) and dismisses it so the
+    bot can continue swiping.
     """
     if config.DRY_RUN:
         do_skip()
@@ -66,6 +70,13 @@ def do_like() -> None:
     x, y = config.COORDS["like_button"]
     adb.tap(x, y)
     adb.jitter_sleep("after_like_sent")
+
+    # Check if we matched — dismiss the match screen
+    if vision.is_match_screen(adb.screenshot()):
+        print("Match screen detected — dismissing.")
+        dx, dy = config.COORDS["match_dismiss"]
+        adb.tap(dx, dy)
+        adb.jitter_sleep("after_tap")
 
 
 def save_error_screenshot(context: str) -> None:

@@ -83,6 +83,9 @@ COORDS = {
     "scroll_to":         (360, 465),
     "scroll_duration_ms": 350,
 
+    # Match popup dismiss (top-right corner X after matching).
+    "match_dismiss":     (650, 60),    # placeholder
+
     # Bottom nav icons.
     "nav_swipe":         (180, 1498),
     # --- todo: fill remaining nav coords ---
