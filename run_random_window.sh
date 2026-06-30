@@ -6,7 +6,7 @@
 # Usage: add to system crontab:
 #   0 10-20/2 * * * /path/to/bumble-auto/run_random_window.sh >> cron.log 2>&1
 #
-# Each hour picks a random delay 0-30min, sleeps, then runs the bot.
+# Each hour picks a random delay 0-20min, sleeps, then runs the bot.
 # Combined with the random like cap (SESSION_LIKE_MIN-MAX_LIKES_PER_SESSION),
 # every run looks different to Bumble's detection systems.
 
