@@ -1,7 +1,7 @@
 """Post run results to Discord via webhook.
 
 Requires DISCORD_WEBHOOK_URL in the environment. No-op when unset.
-Sends profile photos first, then a stats summary at the end.
+Sends profile photos with stats in the first batch, no separate summary.
 """
 
 import json
@@ -81,14 +81,13 @@ def _send_embed_only(webhook_url: str, embed: dict) -> None:
 def post_run(likes_sent: int, profiles_seen: int, skips: int,
              total_cost: float, total_duration_s: float,
              liked_profiles: list[dict] | None = None) -> None:
-    """Post profile photos first, then a stats summary at the end."""
+    """Post profile photos with stats in the first batch, no separate summary."""
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
     if not webhook_url:
         return
 
     liked_profiles = liked_profiles or []
 
-    # Collect profile photos
     liked_dir = config.DEBUG_DIR / "liked"
     profile_data: list[dict] = []
     for i, profile in enumerate(liked_profiles):
@@ -111,7 +110,6 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
         profile_data.append({"name": name, "bytes": photo_bytes})
 
     if not profile_data:
-        # No profiles to show — just send the stats embed alone
         embed = {
             "title": "Bumble Auto — Run Complete",
             "color": 0x57F287,
@@ -126,7 +124,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
         _send_embed_only(webhook_url, embed)
         return
 
-    # 1) Send profile photos in batches (photos first)
+    # Send profile photos in batches, stats in the first batch
     batches = [
         profile_data[i:i + _DISCORD_ATTACHMENT_LIMIT]
         for i in range(0, len(profile_data), _DISCORD_ATTACHMENT_LIMIT)
@@ -142,14 +140,28 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
             f"{start_num + i}. **{p['name']}**" for i, p in enumerate(batch)
         )
 
-        embed = {
-            "title": f"Bumble Auto{f' ({start_num}-{end_num})' if len(profile_data) > _DISCORD_ATTACHMENT_LIMIT else ''}",
-            "color": 0x57F287,
-            "fields": [
-                {"name": "Swiped Right", "value": profile_lines, "inline": False},
-            ],
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
-        }
+        if batch_idx == 0:
+            embed = {
+                "title": f"Bumble Auto{f' ({start_num}-{end_num})' if len(batches) > 1 else ''}",
+                "color": 0x57F287,
+                "fields": [
+                    {"name": "👀 Seen",  "value": str(profiles_seen), "inline": True},
+                    {"name": "❤️ Likes", "value": str(likes_sent),    "inline": True},
+                    {"name": "⏭️ Skip",  "value": str(skips),         "inline": True},
+                    {"name": "Swiped Right", "value": profile_lines, "inline": False},
+                ],
+                "footer": {"text": f"${total_cost:.2f} · {total_duration_s:.0f}s"},
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+            }
+        else:
+            embed = {
+                "title": f"Bumble Auto ({start_num}-{end_num})",
+                "color": 0x57F287,
+                "fields": [
+                    {"name": "Swiped Right", "value": profile_lines, "inline": False},
+                ],
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+            }
 
         payload = {"embeds": [embed]}
         if files_batch:
@@ -161,26 +173,3 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
 
         if batch_idx + 1 < len(batches):
             time.sleep(0.5)
-
-    # 2) Send the stats summary at the end
-    time.sleep(0.5)
-    all_names = "\n".join(
-        f"{i + 1}. **{p['name']}**" for i, p in enumerate(profile_data)
-    )
-    summary_embed = {
-        "title": "Summary",
-        "color": 0x57F287,
-        "fields": [
-            {"name": "👀 Seen",  "value": str(profiles_seen), "inline": True},
-            {"name": "❤️ Likes", "value": str(likes_sent),    "inline": True},
-            {"name": "⏭️ Skip",  "value": str(skips),         "inline": True},
-            {
-                "name": "Swiped Right",
-                "value": all_names if profile_data else "None",
-                "inline": False,
-            },
-        ],
-        "footer": {"text": f"${total_cost:.2f} · {total_duration_s:.0f}s"},
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
-    }
-    _send_embed_only(webhook_url, summary_embed)
