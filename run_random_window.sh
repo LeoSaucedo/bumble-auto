@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run BumbleAuto on even hours (10am-8pm).
-# Sleeps 0-30min so actual run lands between :00-:30.
-# Guarantees 30+ min buffer before next hour's job.
+# Sleeps 0-20min so actual run lands between :00-:20.
+# Guarantees 40+ min buffer before next hour's job.
 #
 # Usage: add to system crontab:
 #   0 10-20/2 * * * /path/to/bumble-auto/run_random_window.sh >> cron.log 2>&1
@@ -14,8 +14,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="/home/ada/.local/bin:/usr/bin:/bin:$PATH"
 
-# Max 30 min random delay to guarantee 30+ min runtime before next cron
-delay=$((RANDOM % 1800))
+# Max 20 min random delay — still guarantees 40+ min runtime before next cron
+delay=$((RANDOM % 1200))
 start_time=$(date -d "+${delay} seconds" '+%H:%M')
 echo "[$(date)] Cron fired. Will run at ~${start_time} (${delay}s delay)"
 sleep "$delay"
