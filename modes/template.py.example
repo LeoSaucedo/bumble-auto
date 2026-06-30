@@ -1,4 +1,4 @@
-"""Template for a custom mode.
+"""Template for a custom Bumble mode.
 
 Copy this file to `modes/<your_name>.py`, edit the fields below, then set
 `ACTIVE_MODE = "<your_name>"` in config.py (or pass `--mode <your_name>`
@@ -7,56 +7,28 @@ on the command line).
 Every mode file MUST export NAME and PREFERENCES. The rest are optional.
 """
 
-# Short identifier shown in logs. Stick to lowercase ascii + underscores.
+# Short identifier shown in logs.
 NAME = "my_mode"
 
-# One-line summary. Helps you remember what this mode does.
+# One-line summary.
 DESCRIPTION = "Describe your rubric in a sentence."
 
-# Optional age gate enforced by the judge. Set to None (both) to leave
-# age enforcement to Hinge's in-app filter only.
+# Optional age gate.
 AGE_MIN = None  # e.g. 22
 AGE_MAX = None  # e.g. 34
 
-# Optional voice template. None = inherit judge.DEFAULT_MESSAGE_VOICE.
-# Set this to a string name (e.g. "example_casual") and put a matching
-# file at voice/<name>.py exporting MESSAGE_VOICE = "...".
-# You can also paste a multi-line string here directly.
-MESSAGE_VOICE = None
-
-# Optional per-mode caps. None = inherit config.MAX_LIKES_PER_SESSION etc.
+# Optional per-mode caps. None = inherit config defaults.
 MAX_LIKES_PER_SESSION = None
 MAX_PROFILES_PER_SESSION = None
 
-# Optional verbatim openers the judge can pick from instead of writing
-# fresh copy. The selected `message` is sent EXACTLY as written. Leave
-# as `[]` to disable.
-#
-# Each entry needs three keys:
-#   id        — short string, used in logs / analytics
-#   message   — the literal text that gets typed into the comment field
-#   use_when  — a description telling the judge when to choose this one
-#
-# Example:
-# PREMADES = [
-#     {
-#         "id": "shared_hobby",
-#         "message": "Saw you climb — what's your favorite local crag?",
-#         "use_when": "Use only when at least one photo or prompt names rock climbing.",
-#     },
-# ]
-PREMADES = []
-
-# The decision rubric. The judge sees this verbatim as part of its system
-# prompt, so write it as instructions to a careful reader. Be explicit
-# about what counts as a LIKE vs SKIP and how to phrase the reasoning.
+# The judging rubric. The judge sees this verbatim as part of its system
+# prompt. Write clear instructions for what makes a RIGHT vs LEFT swipe.
 PREFERENCES = """
 Replace this with your own rubric. A useful structure:
 
-  - State the default decision (LIKE or SKIP).
-  - List the conditions that flip the default.
-  - Note any phrasing constraints for the reasoning field.
+  - State the default decision (SWIPE RIGHT or SWIPE LEFT).
+  - List conditions that flip the default.
+  - Note any special constraints.
 
-See modes/example_lenient.py and modes/example_strict.py for two
-contrasting examples.
+See modes/example_lenient.py and modes/example_strict.py for examples.
 """

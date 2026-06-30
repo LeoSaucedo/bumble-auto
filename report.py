@@ -1,7 +1,7 @@
 """Post run results to Discord via webhook.
 
 Requires DISCORD_WEBHOOK_URL in the environment. No-op when unset.
-Sends a stats embed + profile photos as attachments on the same message.
+Sends a stats embed + profile photos.
 """
 
 import json
@@ -13,7 +13,7 @@ from urllib import request as urllib_request
 import config
 
 
-_USER_AGENT = "HingeAuto/1.0"
+_USER_AGENT = "BumbleAuto/1.0"
 
 
 def _send_multipart_payload(webhook_url: str, payload: dict,
@@ -87,10 +87,9 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
 
     for i, profile in enumerate(liked_profiles):
         name = profile.get("name", "unknown").capitalize()
-        msg = profile.get("message", "") or "(no message)"
         safe = "".join(c for c in name.lower() if c.isalnum()) or "unknown"
 
-        profile_texts.append(f"{i + 1}. **{name}** — {msg}")
+        profile_texts.append(f"{i + 1}. **{name}**")
 
         # Find & read the first photo using exact folder name
         folder_name = profile.get("folder")
@@ -114,7 +113,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
             files.append((f"{profile.get('name', 'unknown')}_frame_00.png", photo.read_bytes()))
 
     embed = {
-        "title": "Hinge Auto — Run Complete",
+        "title": "Bumble Auto — Run Complete",
         "color": 0x57F287,
         "fields": [
             {"name": "👀 Seen",  "value": str(profiles_seen), "inline": True},
