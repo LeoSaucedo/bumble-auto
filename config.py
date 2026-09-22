@@ -88,7 +88,10 @@ COORDS = {
     "swipe_like_to":     (576, 800),
     "swipe_duration_ms": 200,
 
-    # Scroll gesture (swipe up = scroll down through profile).
+    # Scroll gesture (swipe up = scroll down through profile). Only the y
+    # values are read: the live x is re-randomized per gesture within a
+    # safe band (adb._scroll_span), and both endpoints get a little y
+    # jitter so repeated swipes aren't identical.
     "scroll_from":       (360, 1125),
     "scroll_to":         (360, 375),
     "scroll_duration_ms": 500,
