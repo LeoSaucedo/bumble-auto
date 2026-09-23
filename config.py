@@ -118,7 +118,8 @@ DELAYS = {
 # "anthropic" -> uses your ANTHROPIC_API_KEY; best quality, ~$0.02-0.05/profile.
 # "ollama"    -> uses Ollama Cloud (free tier) or local Ollama; lower quality
 #                but no per-token cost.
-# "gemini"    -> uses Gemini via GEMINI_API_KEY; cheapest option.
+# "gemini"    -> uses Gemini via GEMINI_API_KEY; cheap, good quality.
+# "deepseek"  -> uses DeepSeek via DEEPSEEK_API_KEY; cheap vision backend.
 JUDGE_BACKEND = "gemini"
 
 # ---------- Anthropic settings (when JUDGE_BACKEND == "anthropic") ----------
@@ -144,6 +145,26 @@ GEMINI_MODEL = "gemini-3.1-flash-lite"
 # swipes right. None = use DEFAULT_VOLUME_GUIDANCE from judge_common.py.
 # Set to a custom string to override the default guidance.
 SWIPE_VOLUME_GUIDANCE: str | None = None
+
+# ---------- DeepSeek settings (when JUDGE_BACKEND == "deepseek") ----------
+# DEEPSEEK_API_KEY must be set in .env or environment. The API is
+# OpenAI-compatible (https://api.deepseek.com); see judge_deepseek.py.
+#
+# Models:
+#   "deepseek-flash"   — DeepSeek-V4.1-Flash; vision-capable (default)
+#   "deepseek-v4-pro"  — stronger, but NO vision — unusable for this repo
+# Override via DEEPSEEK_MODEL env var or edit the default below.
+DEEPSEEK_MODEL = "deepseek-flash"
+
+# Thinking mode. Off by default: it's the only way to force the
+# submit_decision tool call (the API rejects forced tool choice while
+# thinking is on — see judge_deepseek.py). Turn it on for better
+# reasoning on ambiguous profiles, at the cost of a prose-answer
+# fallback path and a slower, pricier call.
+DEEPSEEK_THINKING = False
+# Only used when DEEPSEEK_THINKING = True. low | medium | high | max
+# ("medium" is mapped to "high" by the API).
+DEEPSEEK_REASONING_EFFORT = "low"
 
 # ---------- Paths ----------
 BASE_DIR = Path(__file__).parent

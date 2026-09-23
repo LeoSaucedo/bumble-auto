@@ -96,6 +96,34 @@ class Decision:
     usage: dict[str, Any] = field(default_factory=dict)
 
 
+def decision_from_tool_args(args: dict, usage: dict) -> Decision:
+    """Build a Decision from a tool-call argument dict, tolerating mild
+    schema drift (non-Anthropic backends miss keys more often than Claude).
+
+    Shared by the OpenAI-compatible backends (Ollama, DeepSeek) so a field
+    default or a clamp rule only has to be right once. Missing fields fall
+    back to safe defaults; enum-like fields are clamped to allowed values so
+    a stray value can't break the loop.
+
+    Note the defaults must stay in sync with the Decision fields above —
+    passing a key that isn't on the dataclass raises TypeError.
+    """
+    defaults = {
+        "name": "unknown",
+        "decision": "skip",
+        "confidence": "low",
+        "reasoning": "",
+        "skip_reason": "other",
+    }
+    merged = {**defaults, **{k: v for k, v in args.items() if k in defaults}}
+    # Clamp enum-like fields to allowed values
+    if merged["decision"] not in ("like", "skip"):
+        merged["decision"] = "skip"
+    if merged["confidence"] not in ("low", "medium", "high"):
+        merged["confidence"] = "low"
+    return Decision(**merged, usage=usage)
+
+
 def _age_clause(age_min: int | None, age_max: int | None) -> str:
     if age_min is None and age_max is None:
         return ""

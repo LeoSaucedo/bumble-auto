@@ -96,11 +96,24 @@ bot swipes accordingly. Running totals print after each profile.
 
 ## Backends
 
-The judge pipeline supports two interchangeable backends set via
+The judge pipeline supports four interchangeable backends set via
 `JUDGE_BACKEND` in `config.py`. All share the same system prompt, schema, and
 `Decision` shape.
 
-### `"gemini"` (default, cheap)
+### `"deepseek"` (cheap, OpenAI-compatible)
+
+Uses DeepSeek's OpenAI-compatible API (`deepseek-flash`, vision-capable)
+with a forced tool call. Measured **~$0.0015–$0.003 per profile** on a
+7-frame profile (off-peak rates are half the peak ones) — roughly a tenth
+of the Anthropic backend's cost, and cheaper than the mid-tier Gemini
+flash models.
+
+Setup: `DEEPSEEK_API_KEY` in `.env`. Override model via `DEEPSEEK_MODEL`
+(only `deepseek-flash` has vision — `deepseek-v4-pro` does not).
+`DEEPSEEK_THINKING=true` trades the guaranteed tool call for extra
+reasoning; see the header of `judge_deepseek.py` for the tradeoff.
+
+### `"gemini"` (cheap)
 
 Uses Google Gemini. **$0.00025–$0.0015 per profile** on Flash Lite.
 
@@ -113,12 +126,22 @@ Roughly **$0.02–$0.05 per profile**.
 
 Setup: `ANTHROPIC_API_KEY` in `.env`.
 
+### `"ollama"` (free, local or cloud)
+
+Uses a vision model on local Ollama or Ollama Cloud. Lower quality
+structured output, but no per-token cost.
+
+Setup: `OLLAMA_MODEL` / `OLLAMA_HOST` in `config.py`, plus
+`OLLAMA_API_KEY` for Ollama Cloud. See `requirements-ollama.txt`.
+
 ## Architecture
 
 ```
-ADB capture    →  frame stitching  →  LLM judge        →  swipe
-   adb.py          config / main       judge_gemini.py      main.py / adb.py
+ADB capture    →  frame stitching  →  LLM judge         →  swipe
+   adb.py          config / main       judge_deepseek.py     main.py / adb.py
+                                       judge_gemini.py
                                        judge.py
+                                       judge_ollama.py
                                        vision.py
                                        judge_common.py
 ```
@@ -131,7 +154,9 @@ ADB capture    →  frame stitching  →  LLM judge        →  swipe
 | **`main.py`** | The orchestration loop. For each profile: scroll through content, capture frames, run through judge, then swipe right or left. |
 | **`judge_common.py`** | Backend-agnostic pipeline: system prompt template, JSON tool schema, `Decision` dataclass, and `load_backend()` dispatcher. |
 | **`judge.py`** | Anthropic Claude backend — vision + forced tool call. |
+| **`judge_deepseek.py`** | DeepSeek backend — vision + forced tool call (OpenAI-compatible REST, no SDK). |
 | **`judge_gemini.py`** | Google Gemini backend — vision + function declaration. |
+| **`judge_ollama.py`** | Ollama backend — local or Ollama Cloud vision model. |
 | **`vision.py`** | Finds UI elements: heart icon (like), X icon (skip), match-dismiss popup. |
 | **`metrics.py`** | Per-profile cost tracking and JSONL logging. |
 | **`report.py`** | Discord webhook reporting with batched attachments. |
