@@ -145,7 +145,6 @@ SWIPE_VOLUME_GUIDANCE: str | None = None
 # ---------- Paths ----------
 BASE_DIR = Path(__file__).parent
 DEBUG_DIR = BASE_DIR / "debug"
-SCREENSHOTS_DIR = BASE_DIR / "screenshots"
 SAVE_DEBUG_FRAMES = True  # keep frames + decisions in debug/ for review
 
 
