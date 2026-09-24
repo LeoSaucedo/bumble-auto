@@ -4,8 +4,7 @@ Most of this repo drives Bumble by coordinates — the swipe and scroll
 gestures in `adb.py` are blind. The exception is telling a loading screen
 apart from a real profile, which can only be answered by looking at the
 frame. Mirrors the equivalent helper in the Hinge sibling repo so the two
-stay in step (see `is_app_loading` for the one constant that legitimately
-differs between them).
+stay in step.
 """
 
 import io
@@ -30,18 +29,28 @@ def is_app_loading(png: bytes) -> bool:
     near-white (>=230), it's a loading screen. On a real profile,
     photos and text bring this well below 50%.
 
-    Measured on the shipped Moto e20 (720x1600): splash = 0.98,
-    loaded feed = 0.12, so the threshold sits in a wide empty gap.
+    Measured on the shipped Moto e20 (720x1600) over 157 sampled
+    captures: real profiles cluster at 0.17 median, splashes at 0.97,
+    so the threshold sits in a wide empty gap. The Hinge sibling has
+    far less headroom (real profile ~0.44 median, 0.62 max) because it
+    floats each photo card on white where Bumble fills the screen with
+    the photo — the same threshold, but a much tighter margin there.
     """
     im = np.array(Image.open(io.BytesIO(png)).convert("L"))
     h, w = im.shape
 
-    # Full-screen sanity check — reject thumbnails and crops. Expressed
-    # against the configured device rather than the Hinge sibling's
-    # hard-coded "w < 950", which is right for its 1080-wide reference
-    # phone but is true of every frame a 720-wide device produces, making
-    # the white-ratio test below unreachable. The mechanism is identical
-    # in both repos; only this constant tracks the hardware.
+    # Full-screen sanity check — reject thumbnails and crops. Derived
+    # from config rather than hard-coded, so it tracks the device if the
+    # phone changes.
+    #
+    # The Hinge sibling hard-coded this to "h < 1500 or w < 950" until
+    # 2026-09-24 — bounds written for the 1080-wide Pixel 10 it ran
+    # before the Moto e20, and never rescaled when the device changed.
+    # Every frame the e20 produces is 720 wide, so there the gate
+    # returned False unconditionally and the white-ratio test below was
+    # unreachable: the guard never fired once in the eight weeks it
+    # existed. This repo was ported with the config-derived form, and
+    # Hinge was then corrected to match it.
     if h < config.SCREEN_HEIGHT * 0.9 or w < config.SCREEN_WIDTH * 0.9:
         return False
 
