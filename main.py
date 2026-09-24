@@ -23,7 +23,8 @@ import config
 import metrics
 import report
 import vision
-from judge_common import load_backend
+from judge_common import (is_fatal_judge_error, is_network_error,
+                          load_backend)
 
 judge = load_backend().judge
 
@@ -236,7 +237,7 @@ def main() -> int:
         print(f"Rotation '{args.rotate}': {rotation_list} (starting at "
               f"index {rotation_idx} = '{rotation_list[rotation_idx]}')")
 
-    # Wake screen and launch Hinge
+    # Wake screen and launch Bumble
     adb.wake_screen()
     adb.launch_app("com.bumble.app")
     # Tap the center nav to ensure we're on the main swipe feed
@@ -282,10 +283,10 @@ def main() -> int:
                 profiles_seen -= 1  # don't count the empty-state capture
                 continue
 
-        # If frame 0 is identical to the previous profile's frame 0, Hinge
+        # If frame 0 is identical to the previous profile's frame 0, Bumble
         # didn't advance after our last action — force-skip rather than
         # burning another ~$0.035 re-judging the same person. Escalate the
-        # delay if we keep duplicating, in case Hinge needs a beat to
+        # delay if we keep duplicating, in case Bumble needs a beat to
         # recover from an "out of likes" / popup state.
         #
         # Hash a cropped region of frame 0 (excluding status bar at top and
@@ -316,6 +317,7 @@ def main() -> int:
         t1 = time.monotonic()
         decision = None
         fatal_error = None
+        network_error = None
         for attempt in range(3):
             try:
                 decision = judge(frames)
@@ -324,19 +326,21 @@ def main() -> int:
                 err = repr(e)
                 print(f"Judge attempt {attempt + 1}/3 failed: {e}")
                 # Halt on errors that won't recover with a retry — burning
-                # through Hinge swipes blind (force-skipping every profile
+                # through Bumble swipes blind (force-skipping every profile
                 # without a real decision) eats the daily quota and looks
-                # robotic to Hinge. Saw this once when the Anthropic credit
-                # balance hit zero mid-run: 124 profiles got blindly skipped
-                # before we noticed.
-                if any(s in err for s in (
-                    "credit balance is too low",
-                    "authentication_error",
-                    "invalid_api_key",
-                    "permission_error",
-                )):
+                # robotic to Bumble. Classification keys off HTTP status and
+                # walks the exception chain, so it covers every backend
+                # instead of matching one vendor's wording.
+                if is_fatal_judge_error(e):
                     fatal_error = err
                     break
+                # A network error is different in kind: it usually clears on
+                # its own, so it doesn't cut the attempts short. But if it
+                # outlasts all three, the internet is down — and skipping is
+                # the wrong recovery, because the judge never saw this
+                # profile and the skip would spend it for nothing.
+                if is_network_error(e):
+                    network_error = err
                 if attempt < 2:
                     time.sleep(5 * (attempt + 1))
         if fatal_error is not None:
@@ -345,6 +349,11 @@ def main() -> int:
             break
         t_judge = time.monotonic() - t1
         if decision is None:
+            if network_error is not None:
+                print(f"\nNETWORK ERROR on all 3 judge attempts — ending the "
+                      f"run. Nothing was skipped; the next cron slot resumes "
+                      f"from this profile.\n  {network_error}")
+                break
             print("Judge failed 3 times — skipping this profile to keep the loop alive.")
             do_skip()
             continue
@@ -400,7 +409,7 @@ def main() -> int:
     report.post_run(likes_sent, profiles_seen, skips, total_cost, total_seconds,
                     liked_profiles)
 
-    # Cleanup: force-stop Hinge so next run starts fresh regardless of app state,
+    # Cleanup: force-stop Bumble so next run starts fresh regardless of app state,
     # then turn screen off.
     adb.force_stop_app("com.bumble.app")
     adb.turn_screen_off()
