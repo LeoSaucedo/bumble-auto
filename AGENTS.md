@@ -78,8 +78,9 @@ works before moving to the next.
 ### Phase 2 — Device + Bumble
 
 1. The user needs an Android device or emulator running. The shipped
-   `COORDS` are calibrated for a **720×1600** phone (a Moto e20);
-   anything else needs recalibration in Phase 3.
+   `COORDS` are calibrated for a **720×1600** screen (the default in
+   `config.py`); anything else needs recalibration in Phase 3, or their
+   own values set via `SCREEN_WIDTH`/`SCREEN_HEIGHT`/`COORDS` in `.env`.
 2. Install Bumble from the **Play Store** inside the emulator (use a
    system image with Google Play, e.g. API 34): sign into a throwaway
    Google account, search Bumble, install — same as on a physical phone.

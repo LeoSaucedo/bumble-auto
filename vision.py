@@ -29,12 +29,12 @@ def is_app_loading(png: bytes) -> bool:
     near-white (>=230), it's a loading screen. On a real profile,
     photos and text bring this well below 50%.
 
-    Measured on the shipped Moto e20 (720x1600) over 157 sampled
-    captures: real profiles cluster at 0.17 median, splashes at 0.97,
-    so the threshold sits in a wide empty gap. The Hinge sibling has
-    far less headroom (real profile ~0.44 median, 0.62 max) because it
-    floats each photo card on white where Bumble fills the screen with
-    the photo — the same threshold, but a much tighter margin there.
+    Measured at 720x1600 over 157 sampled captures: real profiles
+    cluster at 0.17 median, splashes at 0.97, so the threshold sits in
+    a wide empty gap. The Hinge sibling has far less headroom (real
+    profile ~0.44 median, 0.62 max) because it floats each photo card
+    on white where Bumble fills the screen with the photo — the same
+    threshold, but a much tighter margin there.
     """
     im = np.array(Image.open(io.BytesIO(png)).convert("L"))
     h, w = im.shape
@@ -44,13 +44,13 @@ def is_app_loading(png: bytes) -> bool:
     # phone changes.
     #
     # The Hinge sibling hard-coded this to "h < 1500 or w < 950" until
-    # 2026-09-24 — bounds written for the 1080-wide Pixel 10 it ran
-    # before the Moto e20, and never rescaled when the device changed.
-    # Every frame the e20 produces is 720 wide, so there the gate
-    # returned False unconditionally and the white-ratio test below was
-    # unreachable: the guard never fired once in the eight weeks it
-    # existed. This repo was ported with the config-derived form, and
-    # Hinge was then corrected to match it.
+    # 2026-09-24 — bounds written for a 1080-wide reference device, and
+    # never rescaled when its screen changed to 720 wide. Every frame it
+    # captured was 720 wide, so there the gate returned False
+    # unconditionally and the white-ratio test below was unreachable: the
+    # guard never fired once in the eight weeks it existed. This repo was
+    # ported with the config-derived form, and Hinge was then corrected to
+    # match it.
     if h < config.SCREEN_HEIGHT * 0.9 or w < config.SCREEN_WIDTH * 0.9:
         return False
 

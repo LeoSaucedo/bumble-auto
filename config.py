@@ -4,12 +4,14 @@ PREFERENCES, AGE_MIN/MAX come from the active mode (see
 `modes/`). Set ACTIVE_MODE here for the persistent default; override per-run
 via `python main.py --mode <name>`.
 
-The COORDS defaults below are **placeholders** — update with real Bumble
-coords after running calibrate.py against the app.
+The COORDS defaults below are calibrated against Bumble's current layout;
+re-run calibrate.py if the UI shifts. Both they and the screen size are
+overridable from .env.
 
 .env variables override every config.py value at import time.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -69,7 +71,9 @@ MAX_PROFILES_PER_SESSION = 100
 FIT_SCORE_MIN = 50
 
 # ---------- Device settings ----------
-# Moto e20 real phone is 720x1600. Change if using a different device.
+# Shipped default is a 720x1600 screen. Override SCREEN_WIDTH/SCREEN_HEIGHT
+# in .env for a different device — every value in COORDS below is a raw pixel
+# on THIS screen, so a different size means recalibrating the whole table.
 SCREEN_WIDTH = 720
 SCREEN_HEIGHT = 1600
 
@@ -79,8 +83,9 @@ SCREEN_HEIGHT = 1600
 FRAMES_PER_PROFILE = 7
 
 # ---------- Coordinates ----------
-# *** PLACEHOLDERS — replace with real Bumble coords ***
-# Run `python calibrate.py` to verify/adjust after any Bumble UI update.
+# Raw pixels on the screen size above. Keys are individually overridable from
+# .env as JSON — see .env.example. Run `python calibrate.py` to
+# verify/adjust after any Bumble UI update.
 COORDS = {
     # Swipe action targets (bottom of profile after scrolling through).
     # On Bumble, the heart (like) and X (skip) buttons are always at the
@@ -89,7 +94,7 @@ COORDS = {
     "like_button":       (595, 1000),  # Heart icon (calibrated 2026-06-29)
 
     # Swipe gesture coords (horizontal swipe instead of button taps).
-    # Swipe at vertical center of screen (y=800 on 720x1600).
+    # Swipe at vertical center of screen (y=800 = half the screen height).
     # 80% of width (576) → 20% (144) for swipe left (skip).
     # 20% (144) → 80% (576) for swipe right (like).
     "swipe_skip_from":   (576, 800),
@@ -197,6 +202,9 @@ def _apply_env_overrides() -> None:
     Add `KEY=VALUE` to .env and it'll override the matching config.py
     variable at import time. Supports str, int, float, bool, and Path types
     (Path values are resolved relative to BASE_DIR unless absolute).
+
+    Dict-valued config (COORDS, DELAYS) is written as a JSON object and is
+    merged over the defaults rather than replacing them.
     """
     g = globals()
     for key, val in os.environ.items():
@@ -223,6 +231,29 @@ def _apply_env_overrides() -> None:
             g[key] = Path(val).expanduser()
             if not g[key].is_absolute():
                 g[key] = BASE_DIR / g[key]
+        elif isinstance(current, dict):
+            # Same reasoning as Paths: without this branch a dict-valued key
+            # falls through to the bare-string assignment below, and
+            # `COORDS='{...}'` in .env replaces the whole coordinate table
+            # with the *text* of a JSON object. Every later
+            # `config.COORDS["skip_button"]` then raises
+            # `TypeError: string indices must be integers` on the first tap.
+            #
+            # Merged over the defaults, not replacing them: a .env that moves
+            # two buttons shouldn't have to restate the table, and a typo'd
+            # key name then adds an entry nobody reads instead of silently
+            # dropping every key it didn't mention.
+            try:
+                parsed = json.loads(val)
+            except json.JSONDecodeError:
+                print(f"[config] env {key}={val!r}: not valid JSON, skipped")
+                continue
+            if not isinstance(parsed, dict):
+                print(f"[config] env {key}={val!r}: expected a JSON object, skipped")
+                continue
+            merged = dict(current)
+            merged.update(parsed)
+            g[key] = merged
         else:
             g[key] = val
 
