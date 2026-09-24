@@ -219,6 +219,11 @@ Dry-run guidance by tier (see Hard Constraints):
 - `config.py` — single source of truth for COORDS, DRY_RUN,
   ACTIVE_MODE, JUDGE_BACKEND. Mode files write into here via
   `_apply_mode()`.
+- Where debug output lands is `config.DEBUG_DIR` — `debug/` under the
+  repo by default, but overridable from `.env` (`DEBUG_DIR=...`) because
+  a full corpus runs to gigabytes. Read the value rather than assuming
+  `./debug` when you go looking for frames; on this machine it points at
+  a separate disk.
 - `modes/` — rubric files. Each exports `NAME`, `PREFERENCES`, and
   optional `AGE_MIN/MAX`, `FIT_SCORE_MIN`, `MAX_LIKES_PER_SESSION`,
   `MAX_PROFILES_PER_SESSION`, `SWIPE_VOLUME_GUIDANCE`.
@@ -247,7 +252,7 @@ land correctly. If not, you'll see symptoms like:
   guard working, not a calibration problem — but if it escalates to
   `TIER 3` and aborts, Bumble has changed its upsell/prompt screens
   enough that a back press no longer clears them. Look at the
-  screenshot the run saved under `debug/errors/` and at
+  screenshot the run saved under `<DEBUG_DIR>/errors/` and at
   `_recover_from_dialog()` in `main.py`.
 
 When this happens, don't just shrug — you can fix it in-session.

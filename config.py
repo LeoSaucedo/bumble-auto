@@ -194,8 +194,9 @@ load_dotenv()
 def _apply_env_overrides() -> None:
     """Override any config module variable from .env.
 
-    Add `KEY=*** to .env and it'll override the matching config.py
-    variable at import time. Supports str, int, float, and bool types.
+    Add `KEY=VALUE` to .env and it'll override the matching config.py
+    variable at import time. Supports str, int, float, bool, and Path types
+    (Path values are resolved relative to BASE_DIR unless absolute).
     """
     g = globals()
     for key, val in os.environ.items():
@@ -214,6 +215,14 @@ def _apply_env_overrides() -> None:
                 g[key] = float(val)
             except ValueError:
                 print(f"[config] env {key}={val!r}: not a valid float, skipped")
+        elif isinstance(current, Path):
+            # Paths stay Paths — assigning the bare string would break every
+            # `config.DEBUG_DIR / "subdir"` in the tree. Relative values
+            # resolve against the repo the way BASE_DIR-relative defaults do,
+            # so `DEBUG_DIR=debug2` means <repo>/debug2.
+            g[key] = Path(val).expanduser()
+            if not g[key].is_absolute():
+                g[key] = BASE_DIR / g[key]
         else:
             g[key] = val
 

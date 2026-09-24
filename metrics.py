@@ -1,6 +1,6 @@
 """Per-profile structured logging for the autopilot loop.
 
-Each profile run produces one JSONL line in `debug/session_log.jsonl`
+Each profile run produces one JSONL line in `<DEBUG_DIR>/session_log.jsonl`
 with timing, token usage, decision, and message metadata. Append-only
 and machine-parseable so chart-making downstream is trivial.
 """
