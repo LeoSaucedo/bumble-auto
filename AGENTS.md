@@ -118,11 +118,12 @@ Note that `COORDS["skip_button"]` / `COORDS["like_button"]` are read
 only by `calibrate.py`'s help text — the loop swipes rather than taps,
 so a wrong value there costs nothing.
 
-If the user wants to use `--set-filters`, `--location`, or
-`--rotate`, be aware those helpers (`filters.py`, `locations.py`,
-`calibrate_filters.py`) still drive **Hinge's** filter and location UI
-and have not been converted to Bumble's. Treat them as unverified on
-this repo until someone re-calibrates them against Bumble's screens.
+The age slider is the one thing this repo can't drive: the mode's
+`AGE_MIN`/`AGE_MAX` gate is enforced judge-side only. There is no
+in-app filter automation — `--set-filters`, `--location` and `--rotate`
+were removed along with `filters.py` / `locations.py`, which drove
+Hinge's screens. If a user needs Bumble's search radius or age filter
+changed, have them do it by hand in the app.
 
 ### Phase 4 — Write a mode
 
@@ -198,10 +199,6 @@ Dry-run guidance by tier (see Hard Constraints):
   comment field, heart). **Nothing in this repo calls it** — the loop
   swipes instead of tapping. Left in place pending a decision on whether
   Bumble's tap flow ever needs it.
-- `filters.py` / `locations.py` — in-app filter and location automation,
-  reachable via `--set-filters` / `--location` / `--rotate`. **Still
-  written against Hinge's screens**, so treat as broken on Bumble until
-  re-calibrated.
 - `metrics.py` — JSONL session logging and per-backend cost estimates.
 - `matches_scan.py` / `scan_self.py` — standalone Hinge-era scrapers
   (Matches tab, self-profile review), not wired into the loop and not
@@ -282,13 +279,12 @@ When this happens, don't just shrug — you can fix it in-session.
 
 ### Things NOT to auto-patch
 
-- Anything that requires multiple drags (e.g. the Age slider thumb
-  anchors). Hand those off to `calibrate_filters.py` — and note that
-  script still targets Hinge's filter UI, so it needs converting
-  first.
-- Anything that needs the user to confirm a screen-state change
-  (e.g. the location picker flow). Walk the user through it; don't
-  guess.
+- Anything that requires multiple drags, or that lives behind an
+  in-app panel rather than on the profile card. The loop only needs
+  the swipe/scroll coords; a slider or a picker isn't worth automating
+  and isn't worth guessing at. Have the user set it by hand in the app.
+- Anything that needs the user to confirm a screen-state change. Walk
+  the user through it; don't guess.
 
 ## Things to push back on
 
