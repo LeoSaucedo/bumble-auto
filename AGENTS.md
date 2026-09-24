@@ -10,10 +10,15 @@ agents that respect the AGENTS.md convention.
 
 ## What this project is
 
-A Hinge automation loop. An Android emulator runs Hinge; this repo
-drives it via ADB and Claude (or Ollama). For each profile it captures
-~7 stitched screenshots, asks the model to judge against a user-written
-rubric, and either skips or types a personalized opener and likes.
+A Bumble automation loop. An Android device or emulator runs Bumble;
+this repo drives it via ADB and a vision LLM. For each profile it
+captures ~7 stitched screenshots, asks the model to judge against a
+user-written rubric, and then swipes right (like) or left (skip).
+
+There is no message step. Bumble requires a mutual match and the woman
+messages first, so there is nothing to type on a like — the flow is
+gesture-only. That is the main structural difference from the Hinge
+sibling repo, which composes an opener before sending.
 
 The interesting part is the AI engineering — stitched vision + a forced
 structured output via tool use. The bot-swiping is the demo, not the
@@ -21,25 +26,28 @@ point.
 
 ## Hard constraints (read before doing anything)
 
-1. **This violates Hinge's Terms of Service.** Account-ban risk is real
+1. **This violates Bumble's Terms of Service.** Account-ban risk is real
    and there is no appeal process.
 2. **Dry-run is a free-tier tool, not a default.** `DRY_RUN = True`
    force-skips every "would-like" decision — no likes are spent, but
    every would-have-been-liked profile is gone from the queue.
-   - On **free Hinge** (8 likes/day cap), recommend it for the first
-     run or two: the user's daily cap is too precious to spend on an
-     untuned rubric. Once decisions look right, flip back to False.
-   - On **Hinge+** (unlimited likes), don't recommend it. The faster
-     feedback loop is `MAX_LIKES_PER_SESSION = 5` live, watch the
+   - On **free Bumble** (limited daily swipes), recommend it for the
+     first run or two: the user's daily allotment is too precious to
+     spend on an untuned rubric. Once decisions look right, flip back
+     to False.
+   - On **Bumble+ / Premium** (no daily cap), don't recommend it. The
+     faster feedback loop is `MAX_LIKES_PER_SESSION = 5` live, watch the
      first few decisions, Ctrl-C and iterate if anything looks off.
    Default to no-dry-run unless you've confirmed the user is on free
    tier.
-3. **Recommend Hinge+ early.** Free Hinge caps accounts at 8 likes/day
-   (resets 4am local). The shipped cap matches that, so a free user is
-   one-and-done per day. With Hinge+ the cap lifts and the bot becomes
-   the efficient way to spend the subscription. Mention it in Phase 2
-   setup. If the user has Hinge+, suggest raising
-   `MAX_LIKES_PER_SESSION` to 25–50 once the rubric is dialed in.
+3. **Recommend Bumble+ early.** Free-tier Bumble has a limited daily
+   swipe count; the shipped default cap is 20, so a free user will run
+   out well before the cap in a single session. Bumble+ lifts the cap
+   and the bot becomes the efficient way to spend the subscription.
+   Mention it in Phase 2 setup. If the user has Bumble+, suggest raising
+   `MAX_LIKES_PER_SESSION` to 30–50 once the rubric is dialed in — the
+   config comments note that going much higher per session tends to
+   trigger Bumble's soft-throttle (an empty stack after a burst).
 4. **Do not commit secrets.** `.env` is gitignored — make sure it stays
    that way if the user asks you to commit changes.
 
@@ -55,53 +63,66 @@ works before moving to the next.
 2. `pip install -r requirements.txt`.
 3. Confirm `adb` is on PATH (`adb version`). If not, point the user at
    Android Studio's Platform Tools.
-4. Ask: Anthropic API key or Ollama? Most users want Anthropic for
-   quality; Ollama if cost-sensitive or curious. Help them set up
-   `.env` from `.env.example` accordingly. See the README "Backends"
-   section for the toggle.
+4. Ask which judge backend they want. Cheapest is DeepSeek or Gemini
+   Flash Lite; Anthropic is the best quality; Ollama is free but weaker
+   at structured output. Help them set up `.env` from `.env.example`
+   accordingly. See the README "Backends" section for all four.
 
-### Phase 2 — Emulator + Hinge
+### Phase 2 — Device + Bumble
 
-1. The user needs an Android emulator running. Pixel 10 (1080×2424) is
-   the calibrated default; other devices will need recalibration.
-2. Install Hinge from the **Play Store** inside the emulator (use a
+1. The user needs an Android device or emulator running. The shipped
+   `COORDS` are calibrated for a **720×1600** phone (a Moto e20);
+   anything else needs recalibration in Phase 3.
+2. Install Bumble from the **Play Store** inside the emulator (use a
    system image with Google Play, e.g. API 34): sign into a throwaway
-   Google account, search Hinge, install — same as on a physical phone.
+   Google account, search Bumble, install — same as on a physical phone.
    (If their image lacks the Play Store they'd have to sideload an APK
    from a source they trust; don't link to or recommend specific pirate
    APK sites.)
 3. After install, the user signs in (throwaway account, see Hard
-   Constraints) and navigates to the Discover tab.
-4. **Strongly recommend Hinge+.** Without it the user is capped at
-   ~8–10 likes/day on the free tier, which makes this tool pointless.
-   With it, the bot effectively becomes the subscription's labor — the
-   user gets full daily-like-allotment value without ever opening
-   Hinge. Frame it that way, not as an upsell.
-5. Run `adb devices` to confirm the emulator is visible. Troubleshoot
+   Constraints) and lands on the swipe feed. There is no separate
+   "Discover" tab to navigate to — `main.py` taps the center nav item
+   (`COORDS["nav_swipe"]`) to make sure the feed is on screen.
+4. **Recommend Bumble+.** The free tier's daily swipe limit is small
+   enough that a session exhausts it, which makes the tool much less
+   useful. With it, the bot effectively becomes the subscription's
+   labor — the user gets full daily value without ever opening Bumble.
+   Frame it that way, not as an upsell.
+5. Run `adb devices` to confirm the device is visible. Troubleshoot
    if not (most common issue: emulator not started, or USB debugging
    off on a physical device).
 
 ### Phase 3 — Calibration
 
-The shipped `COORDS` in `config.py` are placeholders. They will be
-wrong for the user's emulator.
+The shipped `COORDS` in `config.py` are tuned for one 720×1600 device.
+They will be wrong for a different resolution or aspect ratio.
 
-1. With Hinge open on the Discover tab in the emulator, run
-   `python calibrate.py`. It saves `calibrate.png` to the repo root.
+1. With the Bumble feed open on screen, run `python calibrate.py`. It
+   saves `calibrate.png` to the repo root.
 2. Open `calibrate.png` in any image viewer that shows cursor pixel
    coordinates (Paint on Windows, Preview's "Show Inspector" on Mac,
    any image-coord browser extension).
-3. The user reads off pixel coordinates for: skip button, heart on
-   photo 1, send-like button, comment input, scroll start/end. Help
-   them update `config.COORDS` in `config.py` with the values.
+3. The user reads off pixel coordinates for the swipe gestures —
+   `swipe_skip_from` / `swipe_skip_to` (right-to-left) and
+   `swipe_like_from` / `swipe_like_to` (left-to-right) — plus the
+   scroll start/end, `match_dismiss`, and `nav_swipe`. Note that
+   `calibrate.py`'s printed list still names Hinge-era elements
+   (`send_like_button`, comment input); this repo's `COORDS` has no
+   such keys, so read off the ones listed here instead. Help them
+   update `config.COORDS` in `config.py` with the values.
 4. **Verify by inspection** — show the user the diff of `config.py`
    before/after, and have them sanity-check that the coords look like
    what they read off the screenshot.
 
+Note that `COORDS["skip_button"]` / `COORDS["like_button"]` are read
+only by `calibrate.py`'s help text — the loop swipes rather than taps,
+so a wrong value there costs nothing.
+
 If the user wants to use `--set-filters`, `--location`, or
-`--rotate`, they also need to run `calibrate_filters.py` /
-`calibrate_matches.py` and hand-edit `location_coords.json` (no
-interactive helper exists for the location picker yet).
+`--rotate`, be aware those helpers (`filters.py`, `locations.py`,
+`calibrate_filters.py`) still drive **Hinge's** filter and location UI
+and have not been converted to Bumble's. Treat them as unverified on
+this repo until someone re-calibrates them against Bumble's screens.
 
 ### Phase 4 — Write a mode
 
@@ -115,108 +136,107 @@ interactive helper exists for the location picker yet).
    **Don't write taste-based rules on their behalf — ask, then write
    what they say.** Especially: don't infer demographic preferences;
    don't add rules the user didn't ask for.
-5. Optionally: set `MESSAGE_VOICE` to `"example_casual"` or
-   `"example_polished"`, or paste a custom voice rubric string.
-6. Optionally: add `PREMADES` entries if they have specific opener
-   lines they want to use verbatim.
+5. Optionally: set `SWIPE_VOLUME_GUIDANCE` if the mode's own default
+   decision conflicts with the built-in "aim for roughly half" volume
+   guidance (e.g. a selective rubric that says "when in doubt, skip").
+6. Optionally: set `MAX_LIKES_PER_SESSION` / `MAX_PROFILES_PER_SESSION`
+   to give this mode its own caps.
 7. Update `ACTIVE_MODE` in `config.py` to their new mode's `NAME`.
 
 ### Phase 5a — Profile health check (recommended before going live)
 
-Before running the swipe loop, suggest the user run `python scan_self.py`
-to get Claude's review of their own profile. Reasons:
-1. If photos/prompts are weak, fixing them is higher-leverage than
-   tuning the rubric.
-2. It validates that the user's emulator coords are working before
-   anything is sent to a real person.
-3. It's ToS-clean (just looks at the user's own profile) so a screw-up
-   has no consequence.
-
-The report writes to `debug/self_scan_<timestamp>.md`. Walk through
-the suggestions with the user and offer to help implement the
-prompt rewrites or photo reorder before the first swipe session.
+`scan_self.py` was written against Hinge's self-profile screens and has
+not been converted to Bumble's yet, so don't promise it works. If the
+user wants a profile review, run it and see — if it can't find the
+screens, say so rather than inventing a report.
 
 ### Phase 5 — First live run
 
-1. Leave `MAX_LIKES_PER_SESSION = 8` (default — matches free Hinge's
-   daily cap) and `DRY_RUN = False` (default).
-2. Have the user start the loop: `python main.py` (with Hinge open
-   on the Discover tab). Watch the printed decisions live.
-3. Stop with Ctrl-C if anything looks wrong — a weird opener, a like
-   that should've been a skip, etc.
-4. Review `debug/session_log.jsonl` together. Walk through the
-   decisions and openers.
-5. **Iterate on `PREFERENCES`** based on what they see. Without
-   Hinge+ the user has to wait until 4am local for the next batch
-   (free cap is 8/day total, the bot is not exempt). With Hinge+
-   they can re-run immediately.
-6. Once dialed in: if the user has Hinge+, raise
-   `MAX_LIKES_PER_SESSION` to 25–50 and consider running multiple
-   sessions across the day. If they don't, leave it at 8 — one
-   session is the whole day's allotment.
+1. Leave `MAX_LIKES_PER_SESSION = 20` (default) and `DRY_RUN = False`
+   (default).
+2. Have the user start the loop: `python main.py` (with the Bumble feed
+   open). Watch the printed decisions live.
+3. Stop with Ctrl-C if anything looks wrong — a like that should've
+   been a skip, a skip that should've been a like, etc.
+4. Review the frames and decisions under `debug/` (`debug/liked/` and
+   `debug/skipped/`, one folder per profile, plus the JSONL log). Walk
+   through the decisions together.
+5. **Iterate on `PREFERENCES`** based on what they see. On free tier the
+   user has to wait for the daily swipe allotment to reset before a
+   meaningful next batch; with Bumble+ they can re-run immediately.
+6. Once dialed in: if the user has Bumble+, raise
+   `MAX_LIKES_PER_SESSION` to 30–50 and consider running multiple
+   sessions across the day. If they don't, leave it at 20 and treat one
+   session as the day's budget.
 
 Dry-run guidance by tier (see Hard Constraints):
-- Free Hinge first run: yes, set `DRY_RUN = True` so the 8/day cap
-  survives rubric iteration. Flip back to False once the rubric looks
-  dialed.
-- Hinge+: stay live with a small cap, Ctrl-C and iterate. No dry-run
+- Free Bumble first run: yes, set `DRY_RUN = True` so the daily
+  allotment survives rubric iteration. Flip back to False once the
+  rubric looks dialed.
+- Bumble+: stay live with a small cap, Ctrl-C and iterate. No dry-run
   needed.
 
 ## Architecture orientation (for when the user asks "where does X live")
 
 - `main.py` — loop runner; capture → judge → act.
 - `judge_common.py` — backend-agnostic system prompt, tool schema,
-  `Decision` dataclass, voice resolver.
+  `Decision` dataclass, `load_backend()` dispatcher, and the fatal/network
+  error classifiers.
 - `judge.py` — Anthropic backend.
+- `judge_gemini.py` — Gemini backend.
+- `judge_deepseek.py` — DeepSeek backend (OpenAI-compatible REST).
 - `judge_ollama.py` — Ollama Cloud / local backend.
 - `config.py` — single source of truth for COORDS, DRY_RUN,
   ACTIVE_MODE, JUDGE_BACKEND. Mode files write into here via
   `_apply_mode()`.
 - `modes/` — rubric files. Each exports `NAME`, `PREFERENCES`, and
-  optional `AGE_MIN/MAX`, `MESSAGE_VOICE`, `PREMADES`.
-- `voice/` — message-style templates referenced by `MESSAGE_VOICE`
-  from modes.
-- `adb.py` / `vision.py` — emulator I/O and per-profile UI element
-  detection.
-- `filters.py` / `locations.py` — optional in-app filter automation;
-  need calibrated coord files.
-- `metrics.py` — JSONL session logging.
-- `matches_scan.py` — separate Matches-tab scraper for analytics;
-  Anthropic-only.
-- `scan_self.py` — captures the user's own profile (as others see it)
-  and asks Claude for improvement suggestions. The only feature in
-  this repo that doesn't touch the swipe loop.
+  optional `AGE_MIN/MAX`, `MAX_LIKES_PER_SESSION`,
+  `MAX_PROFILES_PER_SESSION`, `SWIPE_VOLUME_GUIDANCE`.
+- `adb.py` — emulator I/O: screenshot, tap, swipe, type, deadline on
+  every call.
+- `vision.py` — Hinge-era UI element detection (send-like button,
+  comment field, heart). **Nothing in this repo calls it** — the loop
+  swipes instead of tapping. Left in place pending a decision on whether
+  Bumble's tap flow ever needs it.
+- `filters.py` / `locations.py` — in-app filter and location automation,
+  reachable via `--set-filters` / `--location` / `--rotate`. **Still
+  written against Hinge's screens**, so treat as broken on Bumble until
+  re-calibrated.
+- `metrics.py` — JSONL session logging and per-backend cost estimates.
+- `matches_scan.py` / `scan_self.py` — standalone Hinge-era scrapers
+  (Matches tab, self-profile review), not wired into the loop and not
+  converted to Bumble.
 
 ## Self-correcting calibration drift
 
-The shipped `config.COORDS` are tuned for a Pixel 10 emulator at
-1080x2424 against a specific Hinge build. If the user's setup is the
-same, taps land correctly. If not, you'll see symptoms like:
+The shipped `config.COORDS` are tuned for a 720×1600 device against a
+specific Bumble build. If the user's setup is the same, the gestures
+land correctly. If not, you'll see symptoms like:
 
-- A tap that should open a menu does nothing.
-- A tap that should advance a profile force-skips and lands on a
-  different profile (i.e. it hit the wrong button entirely).
-- `vision.find_first_heart` returns coords noticeably different from
-  `COORDS["heart_photo_1"]`.
+- A swipe that should advance a profile does nothing.
+- A swipe that should skip lands on a like (or vice versa) because the
+  gesture started outside the card.
+- A run that keeps force-skipping: `main.py`'s duplicate detection
+  fires when frame 0 is unchanged, which usually means the action
+  gesture didn't register at all.
 
 When this happens, don't just shrug — you can fix it in-session.
 
 ### Recipe
 
-1. **Confirm by screenshot**: capture before-state, attempt the tap,
-   capture after-state, visually compare. Don't trust the tap; trust
-   the screenshot pair.
+1. **Confirm by screenshot**: capture before-state, attempt the
+   gesture, capture after-state, visually compare. Don't trust the
+   gesture; trust the screenshot pair.
 
    ```bash
    adb exec-out screencap -p > /tmp/before.png
-   adb shell input tap <x> <y>
+   adb shell input swipe <x1> <y1> <x2> <y2> <duration_ms>
    sleep 1.2
    adb exec-out screencap -p > /tmp/after.png
    ```
 
 2. **Detect the element**: load the before-state PNG and locate the
-   real element center with PIL + numpy + scipy. The same patterns
-   `vision.py` uses for hearts and Send Like work for most icons:
+   real element center with PIL + numpy + scipy:
 
    ```python
    from PIL import Image
@@ -227,8 +247,8 @@ When this happens, don't just shrug — you can fix it in-session.
    # Look in the region where the element should be (narrow the
    # search to avoid false positives).
    region = img[y_lo:y_hi, x_lo:x_hi]
-   # Match by color: dark icons -> gray < ~100, white -> > ~235,
-   # purple Hinge accent -> R~150 G~50 B~180.
+   # Match by color: Bumble's action row is a white X (skip) and a
+   # yellow heart (like) on a dark card, bottom of the screen.
    mask = region.mean(axis=2) < 100
    labeled, _ = label(mask)
    for i, sl in enumerate(find_objects(labeled), 1):
@@ -236,32 +256,36 @@ When this happens, don't just shrug — you can fix it in-session.
        ...
    ```
 
-3. **Verify**: tap the new coord, capture, confirm the expected screen
-   appeared. If it did, the coord is right.
+3. **Verify**: repeat the gesture with the new coord, capture, confirm
+   the expected screen appeared. If it did, the coord is right.
 
 4. **Patch `config.py`** with the corrected value. Show the user the
    diff before writing.
 
 ### Patterns by element type
 
-- **Bottom-nav icons**: 5 evenly-spaced slots at y≈2270. Slot centers
-  are screen_width/5 * (slot_index + 0.5). If the nav has moved,
-  re-detect with a brightness peak per column across y=2240-2300.
-- **Heart on photo 1**: vision-detectable as a white ~126x126 circle
-  in the right half (x > 800). Use `vision.find_first_heart` directly
-  to confirm.
-- **Send Like button**: peach pill (R>220, G 190-235, B 170-220),
-  ~595x109. Use `vision.find_send_like`.
-- **Filter chips (top row)**: dark text on white pill outlines around
-  y=225. Detect by finding contiguous dark runs across that band.
-- **Back arrows / close X**: 30-50 px dark icons in the top-left
-  (x<150) at y around the action bar (~200).
+- **Swipe gestures**: what actually needs to be right. The x values
+  must straddle the card (the shipped values use 20% and 80% of a
+  720px width) and the y must be inside the card, well clear of the
+  status bar and the action row. `adb.py` re-randomizes the scroll
+  gesture's x per swipe within a 15% edge guard, so keep start and end
+  x clear of the screen edges or the back-gesture strip intercepts
+  them.
+- **Scroll gesture**: only the y values in `COORDS["scroll_from"]` /
+  `["scroll_to"]` are read; the live x is drawn per gesture.
+- **Bottom-nav icons**: `COORDS["nav_swipe"]` is the center slot,
+  used once at startup to land on the feed. If Bumble's nav moves,
+  re-detect with a brightness peak per column across that band.
+- **Match popup dismiss**: `COORDS["match_dismiss"]` is the top-left X
+  on the "What a match!" screen, tapped after every like whether or not
+  a match occurred (a stray tap on a non-match screen is harmless).
 
 ### Things NOT to auto-patch
 
 - Anything that requires multiple drags (e.g. the Age slider thumb
-  anchors). Hand those off to `calibrate_filters.py`, which already
-  does the math.
+  anchors). Hand those off to `calibrate_filters.py` — and note that
+  script still targets Hinge's filter UI, so it needs converting
+  first.
 - Anything that needs the user to confirm a screen-state change
   (e.g. the location picker flow). Walk the user through it; don't
   guess.
@@ -282,11 +306,12 @@ When this happens, don't just shrug — you can fix it in-session.
 
 ## Things to be proactive about
 
-- If `config.COORDS` still looks like the shipped placeholder values
-  when the user is about to run, flag it — the bot will tap into the
-  void.
-- If `MAX_LIKES_PER_SESSION` is set above 8 and the user is on free
-  Hinge, flag that the excess won't fire (they're capped at 8/day).
+- If `config.COORDS` still looks like the shipped 720×1600 values when
+  the user is about to run on a different device, flag it — the bot
+  will tap into the void.
+- If `MAX_LIKES_PER_SESSION` is set far above what the user's tier
+  allows, flag that the excess won't fire (a free account runs out of
+  daily swipes first) or may trip Bumble's soft-throttle.
 - If the user's `PREFERENCES` rubric has internal contradictions (e.g.
   default LIKE + a long list of skip rules), point that out.
 - If a session log shows a clear pattern of bad decisions, suggest

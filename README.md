@@ -10,7 +10,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-FF4FD8.svg"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-FF4FD8?logo=python&logoColor=white">
-  <img alt="Judge: Gemini, or Claude" src="https://img.shields.io/badge/judge-Gemini%20%C2%B7%20Claude-FF4FD8">
+  <img alt="Judge: Gemini, Claude, or DeepSeek" src="https://img.shields.io/badge/judge-Gemini%20%C2%B7%20Claude%20%C2%B7%20DeepSeek-FF4FD8">
   <img alt="Drives Android via ADB" src="https://img.shields.io/badge/device-Android%20%C2%B7%20ADB-FF4FD8">
   <a href="#-read-this-first"><img alt="Violates Bumble ToS — use at your own risk" src="https://img.shields.io/badge/%E2%9A%A0-violates%20Bumble%20ToS-red"></a>
 </p>
@@ -157,7 +157,7 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
 | **`judge_deepseek.py`** | DeepSeek backend — vision + forced tool call (OpenAI-compatible REST, no SDK). |
 | **`judge_gemini.py`** | Google Gemini backend — vision + function declaration. |
 | **`judge_ollama.py`** | Ollama backend — local or Ollama Cloud vision model. |
-| **`vision.py`** | Finds UI elements: heart icon (like), X icon (skip), match-dismiss popup. |
+| **`vision.py`** | Hinge-era UI element detection (send-like button, comment field, heart). Not called by the loop — the bot swipes instead of tapping. |
 | **`metrics.py`** | Per-profile cost tracking and JSONL logging. |
 | **`report.py`** | Discord webhook reporting with batched attachments. |
 | **`config.py`** | All settings with `.env` override support. |

@@ -143,7 +143,11 @@ GEMINI_MODEL = "gemini-3.1-flash-lite"
 # ---------- Swipe volume guidance ----------
 # Injected into the system prompt to guide how aggressively the judge
 # swipes right. None = use DEFAULT_VOLUME_GUIDANCE from judge_common.py.
-# Set to a custom string to override the default guidance.
+# Set to a custom string to override the default guidance, or set it in a
+# mode file to give just that mode its own volume (a selective rubric like
+# "when in doubt, skip" otherwise fights the default "aim for roughly
+# half" at the bottom of the prompt). Private modes keep their personal
+# tuning here rather than in this shared default.
 SWIPE_VOLUME_GUIDANCE: str | None = None
 
 # ---------- DeepSeek settings (when JUDGE_BACKEND == "deepseek") ----------
@@ -220,7 +224,8 @@ def _apply_mode() -> None:
     g["AGE_MIN"] = getattr(mode, "AGE_MIN", None)
     g["AGE_MAX"] = getattr(mode, "AGE_MAX", None)
     g["MODE_NAME"] = mode.NAME
-    for k in ("MAX_LIKES_PER_SESSION", "MAX_PROFILES_PER_SESSION"):
+    for k in ("MAX_LIKES_PER_SESSION", "MAX_PROFILES_PER_SESSION",
+              "SWIPE_VOLUME_GUIDANCE"):
         v = getattr(mode, k, None)
         if v is not None:
             g[k] = v
