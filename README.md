@@ -118,6 +118,10 @@ reasoning; see the header of `judge_deepseek.py` for the tradeoff.
 Uses Google Gemini. **$0.00025–$0.0015 per profile** on Flash Lite.
 
 Setup: `GEMINI_API_KEY` in `.env`. Override model via `GEMINI_MODEL`.
+Current flash options (input/output per 1M tokens, Sept 2026):
+`gemini-3.5-flash-lite` $0.30/$2.50 (default), `gemini-3.1-flash-lite`
+$0.25/$1.50, `gemini-3.6-flash` / `3.7-flash` / `3.8-flash` $0.75/$3.75
+(those three double on 2027-01-01), `gemini-3.5-flash` $1.50/$9.00.
 
 ### `"anthropic"` (best quality)
 
@@ -142,7 +146,6 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
                                        judge_gemini.py
                                        judge.py
                                        judge_ollama.py
-                                       vision.py
                                        judge_common.py
 ```
 
@@ -157,7 +160,6 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
 | **`judge_deepseek.py`** | DeepSeek backend — vision + forced tool call (OpenAI-compatible REST, no SDK). |
 | **`judge_gemini.py`** | Google Gemini backend — vision + function declaration. |
 | **`judge_ollama.py`** | Ollama backend — local or Ollama Cloud vision model. |
-| **`vision.py`** | Hinge-era UI element detection (send-like button, comment field, heart). Not called by the loop — the bot swipes instead of tapping. |
 | **`metrics.py`** | Per-profile cost tracking and JSONL logging. |
 | **`report.py`** | Discord webhook reporting with batched attachments. |
 | **`config.py`** | All settings with `.env` override support. |

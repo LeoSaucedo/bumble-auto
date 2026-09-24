@@ -195,14 +195,11 @@ Dry-run guidance by tier (see Hard Constraints):
   `MAX_PROFILES_PER_SESSION`, `SWIPE_VOLUME_GUIDANCE`.
 - `adb.py` — emulator I/O: screenshot, tap, swipe, type, deadline on
   every call.
-- `vision.py` — Hinge-era UI element detection (send-like button,
-  comment field, heart). **Nothing in this repo calls it** — the loop
-  swipes instead of tapping. Left in place pending a decision on whether
-  Bumble's tap flow ever needs it.
 - `metrics.py` — JSONL session logging and per-backend cost estimates.
-- `matches_scan.py` / `scan_self.py` — standalone Hinge-era scrapers
-  (Matches tab, self-profile review), not wired into the loop and not
-  converted to Bumble.
+- `scan_self.py` — the one Hinge-era tool left in the tree: captures the
+  user's own profile and asks Claude for improvement suggestions. Not
+  wired into the swipe loop and not converted to Bumble's screens, so it
+  may not find its way around the app — verify before promising a report.
 
 ## Self-correcting calibration drift
 

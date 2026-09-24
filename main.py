@@ -22,7 +22,6 @@ import adb
 import config
 import metrics
 import report
-import vision
 from judge_common import (is_fatal_judge_error, is_network_error,
                           load_backend)
 

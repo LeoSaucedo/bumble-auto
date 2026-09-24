@@ -136,9 +136,10 @@ OLLAMA_HOST = None
 
 # ---------- Gemini settings (when JUDGE_BACKEND == "gemini") ----------
 # GEMINI_API_KEY must be set in .env or environment.
-# Uses gemini-3.1-flash-lite by default (cheapest vision model). Override
-# via GEMINI_MODEL env var or edit the default below.
-GEMINI_MODEL = "gemini-3.1-flash-lite"
+# Uses gemini-3.5-flash-lite by default — $0.30/$2.50 per 1M tokens, the
+# cheapest vision model in the current lineup. Override via GEMINI_MODEL
+# env var or edit the default below.
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 # ---------- Swipe volume guidance ----------
 # Injected into the system prompt to guide how aggressively the judge
