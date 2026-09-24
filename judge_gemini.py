@@ -40,7 +40,7 @@ def judge(frames: list[bytes]) -> Decision:
         raise RuntimeError("GEMINI_API_KEY not set. Add it to .env or export it.")
 
     client = genai.Client(api_key=api_key)
-    model = getattr(config, "GEMINI_MODEL", "gemini-3.1-flash-lite")
+    model = getattr(config, "GEMINI_MODEL", "gemini-3.5-flash-lite")
 
     parts = [_image_part(f) for f in frames]
     parts.append(types.Part(

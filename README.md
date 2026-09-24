@@ -65,10 +65,10 @@ Two guards keep the loop from spending swipes on the wrong things:
 
 - **The fit-score gate.** The model's verdict is a number, not a decision. A
   runtime config read, `FIT_SCORE_MIN`, is what turns it into like or skip.
-- **Dialog detection.** Popups, upsells and permission prompts get reported as
-  `NOT_A_PROFILE` instead of being scored as a person. The loop then recovers —
-  back press, then app restart, then a Discord alert and a clean stop — rather
-  than swiping at a dialogue box.
+- **Dialog detection.** Popups, upsells, permission prompts and other
+  non-profile screens get reported as `NOT_A_PROFILE` instead of being scored
+  as a person. The loop then recovers — back press, then app restart, then a
+  Discord alert and a clean stop — rather than swiping at a dialogue box.
 
 ## Quickstart
 
@@ -189,7 +189,7 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
 2. Frames + system prompt sent to the active judge backend
 3. Judge returns a structured `Decision`: `fit_score` (0–100),
    `dominant_factor`, confidence, reasoning — or `NOT_A_PROFILE` if a popup
-   blocked the screen
+   or other non-profile screen blocked the view
 4. Harness applies the gate: like iff `fit_score >= FIT_SCORE_MIN`
 5. A `NOT_A_PROFILE` verdict instead runs dialog recovery (back press →
    app restart → alert and stop) and returns to step 1 without spending a swipe

@@ -160,7 +160,11 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
                         if candidate.is_file():
                             photo_bytes = candidate.read_bytes()
                             break
-        profile_data.append({"name": name, "bytes": photo_bytes})
+        profile_data.append({
+            "name": name,
+            "fit_score": profile.get("fit_score", 0),
+            "bytes": photo_bytes,
+        })
 
     if not profile_data:
         embed = {
@@ -190,7 +194,8 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
         start_num = batch_idx * _DISCORD_ATTACHMENT_LIMIT + 1
         end_num = start_num + len(batch) - 1
         profile_lines = "\n".join(
-            f"{start_num + i}. **{p['name']}**" for i, p in enumerate(batch)
+            f"{start_num + i}. **{p['name']}** (fit {p.get('fit_score', 0)}/100)"
+            for i, p in enumerate(batch)
         )
 
         if batch_idx == 0:

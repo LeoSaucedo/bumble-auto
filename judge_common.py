@@ -23,11 +23,18 @@ The user's preferences:
 {age_clause}
 You will be shown a sequence of screenshots representing a single profile, in
 order from top to bottom. The profile may include photos, prompt responses
-(short text), and basic info (age, height, location, job, education, etc.).
+(short text), and basic info (age, height, job, education, etc.).
+{location_clause}
 {fit_clause}
-If a dialog, popup, overlay, or other non-profile screen blocks any part of
-the profile — settings panel, upsell, notification prompt, rating nag — set
-decision="NOT_A_PROFILE" and describe it in reasoning.
+DIALOGS: the screenshots are captured one after another as the profile is
+scrolled, so a dialog, popup, overlay or other non-profile screen often
+appears partway through — a rating nag, upsell, notification prompt or
+settings panel that covers the screen from some frame onward while the
+earlier frames are still clean. A dialog covering the screen in ANY frame
+means decision="NOT_A_PROFILE", even when the first frame or two show a real
+profile. Do not score the clean frames and disregard the covered ones, and do
+not assume the covered frames are just more of the same profile — describe
+the dialog in reasoning instead.
 
 {volume_guidance}
 Submit your decision via the submit_decision tool."""
@@ -104,6 +111,7 @@ DECIDE_INPUT_SCHEMA = {
                 "religion",
                 "low_effort",
                 "grooming",
+                "tattoos",
                 "ethnicity",
                 "lifestyle",
                 "interests",
@@ -204,6 +212,24 @@ def _age_clause(age_min: int | None, age_max: int | None) -> str:
     )
 
 
+def _location_clause() -> str:
+    """Tell the model to disregard location.
+
+    Dropping "location" from the profile-info list isn't enough on its own:
+    Bumble renders a distance and often a city right in the basic info, so
+    the judge reads them off the screenshots whether or not we name the
+    field. This clause is the half that actually does the work.
+
+    Same clause as the Hinge sibling repo, minus its closing "or the opener
+    you draft" — Bumble has no message step for the judge to draft into.
+    """
+    return (
+        "\nLOCATION: ignore it. City and distance "
+        '("3 miles away") are decoration — never let them affect fit_score, '
+        "and don't mention them in your reasoning.\n"
+    )
+
+
 def build_system_prompt() -> str:
     volume = getattr(config, "SWIPE_VOLUME_GUIDANCE", None)
     if volume is None:
@@ -211,6 +237,7 @@ def build_system_prompt() -> str:
     return SYSTEM_PROMPT_TEMPLATE.format(
         preferences=config.PREFERENCES.strip(),
         age_clause=_age_clause(config.AGE_MIN, config.AGE_MAX),
+        location_clause=_location_clause(),
         fit_clause=_fit_clause(),
         volume_guidance=volume.strip(),
     )

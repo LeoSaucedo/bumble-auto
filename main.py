@@ -22,6 +22,7 @@ import adb
 import config
 import metrics
 import report
+import vision
 from judge_common import (apply_fit_threshold, is_fatal_judge_error,
                           is_network_error, load_backend)
 
@@ -45,6 +46,13 @@ def capture_profile() -> list[bytes]:
     Takes FRAMES_PER_PROFILE screenshots with scrolls between, then does
     one final scroll to reach the bottom action buttons.
     """
+    # Check for stuck loading screen BEFORE any scrolls or interactions.
+    # Saves ~3-8 wasted scroll-up swipes + avoids burning API credits
+    # judging a loading screen as if it were a profile. The caller catches
+    # this and restarts the app.
+    if vision.is_app_loading(adb.screenshot()):
+        raise RuntimeError("app stuck on loading screen")
+
     frames: list[bytes] = []
     frames.append(adb.screenshot())
     adb.jitter_sleep("after_screenshot")
@@ -82,6 +90,19 @@ def do_skip() -> None:
     adb.jitter_sleep("after_skip")
 
 
+class FeedAlreadyAdvanced(RuntimeError):
+    """do_like aborted *after* the feed moved on — this profile is spent.
+
+    The like swipe advances the feed, so anything that fails afterwards (the
+    match-dismiss tap) leaves the next profile already on screen. main's
+    do_like handler treats any failure as "recover by skipping this profile",
+    so a plain RuntimeError there made it tap skip a second time — spending
+    the *next* profile too, one the judge never saw. Raising a distinct type
+    lets the handler tell "the feed already moved" from "the like failed and
+    nothing has moved yet".
+    """
+
+
 def do_like() -> None:
     """Swipe right to like the profile.
 
@@ -108,12 +129,19 @@ def do_like() -> None:
 
     # Always attempt to dismiss a potential match popup
     dx, dy = config.COORDS["match_dismiss"]
-    adb.tap(dx, dy)
+    try:
+        adb.tap(dx, dy)
+    except Exception as e:
+        # The like already landed, so the feed has moved on. Tell the caller
+        # not to "recover" by skipping — that would spend the next profile.
+        raise FeedAlreadyAdvanced(
+            f"match-dismiss tap failed after a sent like: {e!r}"
+        ) from e
     adb.jitter_sleep("after_tap")
 
 
 def save_error_screenshot(context: str) -> str:
-    """Capture the current screen and save to debug/errors/ for post-mortem.
+    """Capture the current screen and save to <DEBUG_DIR>/errors/ for post-mortem.
 
     Returns the path to the saved screenshot."""
     errors_dir = config.DEBUG_DIR / "errors"
@@ -216,13 +244,45 @@ def main() -> int:
     last_frame0_hash: str | None = None
     duplicate_streak = 0
     dialog_streak = 0
+    hit_like_cap = False
 
     while profiles_seen < config.MAX_PROFILES_PER_SESSION:
         profiles_seen += 1
         print(f"\n--- Profile {profiles_seen} ---")
 
         t0 = time.monotonic()
-        frames = capture_profile()
+        try:
+            frames = capture_profile()
+        except RuntimeError as e:
+            if "loading screen" in str(e):
+                dialog_streak += 1
+                print(f"\nAPP STUCK ON LOADING SCREEN (streak {dialog_streak})")
+                dialog_ss = save_error_screenshot(f"loading-screen-{dialog_streak}")
+
+                # Back press won't help an unloaded app — go straight to restart.
+                if dialog_streak >= 3:
+                    msg = (f"Loading screen persisted after {dialog_streak} "
+                           f"app restarts.")
+                    print(f"GIVING UP: {msg}")
+                    report.post_error(msg, profiles_seen, likes_sent, skips,
+                                      screenshot_path=dialog_ss)
+                    break
+
+                print(f"  Force-stopping + relaunching Bumble...")
+                adb.force_stop_app("com.bumble.app")
+                time.sleep(2)
+                adb.wake_screen()
+                adb.launch_app("com.bumble.app")
+                adb.tap(*config.COORDS["nav_swipe"])
+                time.sleep(3)
+
+                # This iteration never judged a profile — refund it so the
+                # session's profile budget isn't spent on app restarts.
+                profiles_seen -= 1
+                last_frame0_hash = None
+                duplicate_streak = 0
+                continue
+            raise
         t_capture = time.monotonic() - t0
         print(f"Captured {len(frames)} frames")
 
@@ -370,8 +430,27 @@ def main() -> int:
 
         t2 = time.monotonic()
         if decision.decision == "like":
+            like_sent = False
             try:
                 do_like()
+                like_sent = True
+            except FeedAlreadyAdvanced as e:
+                # The swipe itself landed and the feed moved on — only the
+                # post-swipe cleanup tap failed. This is the like it was, so
+                # count it. The handler below would "recover by skipping",
+                # which spends the *next* profile, one no judge ever scored.
+                print(f"do_like aborted: {e} — feed already advanced, "
+                      f"counting it as the like it was.")
+                like_sent = True
+            except Exception as e:
+                save_error_screenshot(f"do-like-failed-{profiles_seen}")
+                print(f"do_like failed: {e!r} — recovering by skipping this profile.")
+                try:
+                    do_skip()
+                except Exception as e2:
+                    print(f"do_skip recovery also failed: {e2!r} — loop will retry next iter.")
+                skips += 1
+            if like_sent:
                 liked_profiles.append({
                     "name": decision.name,
                     "index": profiles_seen,
@@ -381,15 +460,9 @@ def main() -> int:
                 likes_sent += 1
                 if likes_sent >= session_like_cap:
                     print(f"Hit max likes cap ({session_like_cap}). Stopping.")
-                    break
-            except Exception as e:
-                save_error_screenshot(f"do-like-failed-{profiles_seen}")
-                print(f"do_like failed: {e!r} — recovering by skipping this profile.")
-                try:
-                    do_skip()
-                except Exception as e2:
-                    print(f"do_skip recovery also failed: {e2!r} — loop will retry next iter.")
-                skips += 1
+                    # Don't break here — the profile still needs its log
+                    # record + cost tally below (metrics.log_profile).
+                    hit_like_cap = True
         else:
             do_skip()
             skips += 1
@@ -409,6 +482,9 @@ def main() -> int:
             profiles_seen, likes_sent, skips, total_cost, total_seconds,
             avg_fit_score=avg_fit,
         )
+
+        if hit_like_cap:
+            break
 
     avg_fit = (fit_score_sum / fit_score_count) if fit_score_count else 0
     print(f"\nDone. {likes_sent} likes sent across {profiles_seen} profiles "
