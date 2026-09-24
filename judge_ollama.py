@@ -65,7 +65,7 @@ def _tool_spec() -> dict:
         "type": "function",
         "function": {
             "name": "submit_decision",
-            "description": "Submit a like/skip decision for this Bumble profile.",
+            "description": "Submit a fit score for this Bumble profile.",
             "parameters": DECIDE_INPUT_SCHEMA,
         },
     }
@@ -82,7 +82,7 @@ def judge(frames: list[bytes]) -> Decision:
 
     user_text = (
         f"Above are {len(frames)} screenshots of one Bumble profile, in order "
-        "from top to bottom. Decide whether to like or skip, and call the "
+        "from top to bottom. Score the profile's fit, and call the "
         "submit_decision tool with the structured result."
     )
 

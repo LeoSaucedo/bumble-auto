@@ -101,6 +101,13 @@ def _resolve_model_name() -> str:
 
 
 _ACTIVE_MODEL = _resolve_model_name()
+
+
+def active_model() -> str:
+    """Model name for the active backend (same string logged per profile)."""
+    return _ACTIVE_MODEL
+
+
 _PRICING = MODEL_PRICING.get(_ACTIVE_MODEL)
 if _PRICING is None:
     print(f"[metrics] WARN: unknown model {_ACTIVE_MODEL!r}, cost will be $0 "
@@ -136,9 +143,10 @@ def log_profile(
         "model": _ACTIVE_MODEL,
         "name": decision.name,
         "decision": decision.decision,
+        "fit_score": decision.fit_score,
         "confidence": decision.confidence,
         "reasoning": decision.reasoning,
-        "skip_reason": decision.skip_reason,
+        "dominant_factor": decision.dominant_factor,
         "timing": timing,
         "tokens": decision.usage,
         "estimated_cost_usd": round(estimated_cost(decision.usage), 5),
@@ -154,6 +162,7 @@ def print_running_totals(
     skips: int,
     total_cost: float,
     total_seconds: float,
+    avg_fit_score: float = 0.0,
 ) -> None:
     """One-line summary printed every loop iteration."""
     avg_cost = total_cost / profiles_seen if profiles_seen else 0
@@ -163,6 +172,7 @@ def print_running_totals(
     print(
         f"[totals] {profiles_seen} profiles | {likes_sent} likes "
         f"({like_rate:.0%}) | {skips} skips | "
+        f"avg fit {avg_fit_score:.0f}/100 | "
         f"${total_cost:.3f} (~${avg_cost:.4f}/profile) | "
         f"avg {avg_time:.1f}s/profile | {model_tag}"
     )

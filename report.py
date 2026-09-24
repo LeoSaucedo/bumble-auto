@@ -11,10 +11,23 @@ from pathlib import Path
 from urllib import request as urllib_request
 
 import config
+import metrics
 
 
 _USER_AGENT = "BumbleAuto/1.0"
 _DISCORD_ATTACHMENT_LIMIT = 10
+
+
+def _footer(total_cost: float, total_duration_s: float,
+            avg_fit_score: float) -> dict:
+    """Embed footer: cost, duration, average fit, and the judge model — so a
+    run's backend is identifiable from Discord when comparing backends."""
+    return {
+        "text": (
+            f"${total_cost:.2f} · {total_duration_s:.0f}s · "
+            f"avg fit {avg_fit_score:.0f}/100 · {metrics.active_model()}"
+        )
+    }
 
 
 def _send_multipart_payload(webhook_url: str, payload: dict,
@@ -78,9 +91,49 @@ def _send_embed_only(webhook_url: str, embed: dict) -> None:
         print(f"[report] webhook embed failed: {e.code} {e.read().decode()[:200]}")
 
 
+def post_error(message: str, profiles_seen: int, likes_sent: int,
+               skips: int, screenshot_path: str | None = None) -> None:
+    """Send a fatal-error embed to the Discord webhook.
+
+    Used when the run gives up — dialog recovery exhausted, app wedged. If
+    screenshot_path is provided the screenshot is attached as a file."""
+    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        return
+
+    embed = {
+        "title": "❌ Bumble Auto — Run Aborted",
+        "color": 0xED4245,
+        "description": message,
+        "fields": [
+            {"name": "👀 Seen",  "value": str(profiles_seen), "inline": True},
+            {"name": "❤️ Likes", "value": str(likes_sent),    "inline": True},
+            {"name": "⏭️ Skips", "value": str(skips),         "inline": True},
+        ],
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+    }
+
+    if screenshot_path:
+        try:
+            screenshot_bytes = Path(screenshot_path).read_bytes()
+            payload = {"embeds": [embed], "attachments": [
+                {"id": 0, "filename": "dialog_screenshot.png",
+                 "description": "Dialog that blocked the run"}
+            ]}
+            _send_multipart_payload(
+                webhook_url, payload,
+                [("dialog_screenshot.png", screenshot_bytes)])
+            return
+        except Exception as e:
+            print(f"[report] failed to attach screenshot: {e}")
+
+    _send_embed_only(webhook_url, embed)
+
+
 def post_run(likes_sent: int, profiles_seen: int, skips: int,
              total_cost: float, total_duration_s: float,
-             liked_profiles: list[dict] | None = None) -> None:
+             liked_profiles: list[dict] | None = None,
+             avg_fit_score: float = 0.0) -> None:
     """Post profile photos with stats in the first batch, no separate summary."""
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
     if not webhook_url:
@@ -118,7 +171,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
                 {"name": "❤️ Likes", "value": str(likes_sent),    "inline": True},
                 {"name": "⏭️ Skip",  "value": str(skips),         "inline": True},
             ],
-            "footer": {"text": f"${total_cost:.2f} · {total_duration_s:.0f}s"},
+            "footer": _footer(total_cost, total_duration_s, avg_fit_score),
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
         }
         _send_embed_only(webhook_url, embed)
@@ -150,7 +203,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
                     {"name": "⏭️ Skip",  "value": str(skips),         "inline": True},
                     {"name": "Swiped Right", "value": profile_lines, "inline": False},
                 ],
-                "footer": {"text": f"${total_cost:.2f} · {total_duration_s:.0f}s"},
+                "footer": _footer(total_cost, total_duration_s, avg_fit_score),
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
             }
         else:
@@ -160,7 +213,7 @@ def post_run(likes_sent: int, profiles_seen: int, skips: int,
                 "fields": [
                     {"name": "Swiped Right", "value": profile_lines, "inline": False},
                 ],
-                "footer": {"text": f"${total_cost:.2f} · {total_duration_s:.0f}s"},
+                "footer": _footer(total_cost, total_duration_s, avg_fit_score),
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
             }
 

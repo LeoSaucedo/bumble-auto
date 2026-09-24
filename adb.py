@@ -174,6 +174,16 @@ def go_home() -> None:
     time.sleep(0.5)
 
 
+def press_back() -> None:
+    """Press the Android back button once.
+
+    Used by the loop's dialog recovery: when the judge reports the screen
+    isn't a profile, a back press is the cheapest way out of most
+    overlays.
+    """
+    _run(["shell", "input", "keyevent", "4"])
+
+
 def turn_screen_off() -> None:
     """Turn the screen off."""
     _run(["shell", "input", "keyevent", "26"])

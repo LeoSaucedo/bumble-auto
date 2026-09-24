@@ -28,8 +28,15 @@
 
 BumbleAuto is what you get when you point a vision-LLM at a phone screen and let
 it swipe for you. An Android device runs a real Bumble install; this repo drives
-it over ADB, judging every profile against a rubric **you** write and acting on
+it over ADB, scoring every profile against a rubric **you** write and acting on
 the verdict — swipe left (skip), or swipe right (like).
+
+The judge never picks like vs skip itself. It returns a **fit score** (0–100)
+plus the single `dominant_factor` that drove it, and the harness decides:
+like iff `fit_score >= FIT_SCORE_MIN`. Keeping the threshold out of the prompt
+means the model can't game a number it never sees, and re-tuning how picky the
+bot is becomes a config edit instead of a prompt rewrite — raise `FIT_SCORE_MIN`
+for fewer, better likes; lower it for volume.
 
 Bumble's core flow differs from Hinge — there's no "send message with like"
 feature. The bot simply swipes right on profiles worth matching, and the rest
@@ -50,8 +57,18 @@ for a single throwaway account, not a dating strategy.
 
 Drives an Android device running Bumble through ADB. For each profile it
 scrolls through all content (photos + prompts), captures screenshots, asks a
-vision LLM to judge against your rubric, and swipes right (like) or left (skip).
-No messaging — Bumble requires mutual matching and the woman messaging first.
+vision LLM to score it against your rubric, and swipes right (like) or left
+(skip). No messaging — Bumble requires mutual matching and the woman messages
+first.
+
+Two guards keep the loop from spending swipes on the wrong things:
+
+- **The fit-score gate.** The model's verdict is a number, not a decision. A
+  runtime config read, `FIT_SCORE_MIN`, is what turns it into like or skip.
+- **Dialog detection.** Popups, upsells and permission prompts get reported as
+  `NOT_A_PROFILE` instead of being scored as a person. The loop then recovers —
+  back press, then app restart, then a Discord alert and a clean stop — rather
+  than swiping at a dialogue box.
 
 ## Quickstart
 
@@ -91,8 +108,9 @@ source .venv/bin/activate
 python main.py
 ```
 
-Each profile scrolls through screenshots, the judge decides like/skip, and the
-bot swipes accordingly. Running totals print after each profile.
+Each profile scrolls through screenshots, the judge scores it, the harness
+turns that score into like/skip, and the bot swipes accordingly. Running totals
+print after each profile, including the session's average fit score.
 
 ## Backends
 
@@ -155,7 +173,7 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
 |---|---|
 | **`adb.py`** | Wraps the `adb` CLI: screenshot, tap, swipe, type. |
 | **`main.py`** | The orchestration loop. For each profile: scroll through content, capture frames, run through judge, then swipe right or left. |
-| **`judge_common.py`** | Backend-agnostic pipeline: system prompt template, JSON tool schema, `Decision` dataclass, and `load_backend()` dispatcher. |
+| **`judge_common.py`** | Backend-agnostic pipeline: system prompt template, JSON tool schema, `Decision` dataclass, `apply_fit_threshold()` (the one place like/skip gets decided), and `load_backend()` dispatcher. |
 | **`judge.py`** | Anthropic Claude backend — vision + forced tool call. |
 | **`judge_deepseek.py`** | DeepSeek backend — vision + forced tool call (OpenAI-compatible REST, no SDK). |
 | **`judge_gemini.py`** | Google Gemini backend — vision + function declaration. |
@@ -169,11 +187,29 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
 
 1. ADB captures profile screenshots (photos + prompts)
 2. Frames + system prompt sent to the active judge backend
-3. Judge returns structured `Decision` (like/skip, confidence, reasoning)
-4. Swipe right (like) or left (skip) via ADB swipe gesture
-5. Match popup dismissed if present
-6. Metrics logged, Discord stats posted
-7. Loops until like cap hit
+3. Judge returns a structured `Decision`: `fit_score` (0–100),
+   `dominant_factor`, confidence, reasoning — or `NOT_A_PROFILE` if a popup
+   blocked the screen
+4. Harness applies the gate: like iff `fit_score >= FIT_SCORE_MIN`
+5. A `NOT_A_PROFILE` verdict instead runs dialog recovery (back press →
+   app restart → alert and stop) and returns to step 1 without spending a swipe
+6. Swipe right (like) or left (skip) via ADB swipe gesture
+7. Match popup dismissed if present
+8. Metrics logged, Discord stats posted
+9. Loops until like cap hit
+
+### Tuning pickiness
+
+`FIT_SCORE_MIN` defaults to 50 and can be set in `.env` (global default) or in
+a mode file (per-mode). `example_lenient` ships at 40, `example_strict` at 65.
+
+Judge `fit_score` alongside `FIT_SCORE_MIN` when a run doesn't feel right. The
+`avg fit N/100` line printed after every profile tells you which knob to turn:
+
+- **Scores cluster just under the threshold** → the rubric agrees with you and
+  only the threshold is off. Lower `FIT_SCORE_MIN`.
+- **Scores look random relative to the profiles** → the rubric needs work, not
+  the threshold. A threshold change would just move the same bad cut.
 
 ## Differences from HingeAuto
 

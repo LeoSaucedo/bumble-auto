@@ -59,7 +59,7 @@ def _tool_spec() -> dict:
         "type": "function",
         "function": {
             "name": "submit_decision",
-            "description": "Submit a like/skip decision for this Bumble profile.",
+            "description": "Submit a fit score for this Bumble profile.",
             "parameters": DECIDE_INPUT_SCHEMA,
         },
     }
@@ -81,7 +81,7 @@ def _request_body(model: str, frames: list[bytes], thinking: bool) -> dict:
         "type": "text",
         "text": (
             f"Above are {len(frames)} screenshots of one Bumble profile, in "
-            "order from top to bottom. Decide whether to like or skip, then "
+            "order from top to bottom. Score the profile's fit, then "
             "call the submit_decision tool with the structured result."
         ),
     })

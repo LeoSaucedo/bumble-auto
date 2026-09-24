@@ -12,8 +12,15 @@ agents that respect the AGENTS.md convention.
 
 A Bumble automation loop. An Android device or emulator runs Bumble;
 this repo drives it via ADB and a vision LLM. For each profile it
-captures ~7 stitched screenshots, asks the model to judge against a
-user-written rubric, and then swipes right (like) or left (skip).
+captures ~7 stitched screenshots, asks the model to **score** it against
+a user-written rubric, and then swipes right (like) or left (skip).
+
+The model does not choose like vs skip. It returns a `fit_score` (0-100)
+and the harness decides: like iff `fit_score >= FIT_SCORE_MIN`. That split
+is deliberate — the model can't game a threshold it never sees, and
+re-tuning pickiness is a config edit rather than a prompt edit. It also
+means a mode's selectivity belongs in `FIT_SCORE_MIN`, not in prose telling
+the model to swipe left more.
 
 There is no message step. Bumble requires a mutual match and the woman
 messages first, so there is nothing to type on a like — the flow is
@@ -137,12 +144,27 @@ changed, have them do it by hand in the app.
    **Don't write taste-based rules on their behalf — ask, then write
    what they say.** Especially: don't infer demographic preferences;
    don't add rules the user didn't ask for.
-5. Optionally: set `SWIPE_VOLUME_GUIDANCE` if the mode's own default
-   decision conflicts with the built-in "aim for roughly half" volume
-   guidance (e.g. a selective rubric that says "when in doubt, skip").
-6. Optionally: set `MAX_LIKES_PER_SESSION` / `MAX_PROFILES_PER_SESSION`
+5. If the rubric wants to be more or less picky than the default, set
+   `FIT_SCORE_MIN` **in the mode file**. That is the dial — the shared
+   default is 50, `example_lenient` uses 40, `example_strict` uses 65.
+   Don't phrase selectivity as "swipe left more" in `PREFERENCES`: the
+   model doesn't choose like vs skip, so that text only moves the score
+   indirectly, while the threshold moves it exactly.
+6. Optionally: set `SWIPE_VOLUME_GUIDANCE` to calibrate how the mode's
+   rubric maps onto the 0-100 range — it replaces the shared
+   `DEFAULT_VOLUME_GUIDANCE`. Reserve this for a rubric whose scale
+   genuinely differs from the generic one; `FIT_SCORE_MIN` is the usual
+   lever.
+7. Optionally: set `MAX_LIKES_PER_SESSION` / `MAX_PROFILES_PER_SESSION`
    to give this mode its own caps.
-7. Update `ACTIVE_MODE` in `config.py` to their new mode's `NAME`.
+8. Re-check the rubric's wording is in scoring terms ("score low",
+   "clears the bar") rather than swipe terms — see Phase 4 step 5.
+9. Update `ACTIVE_MODE` in `config.py` to their new mode's `NAME`.
+
+A mode that omits `FIT_SCORE_MIN` / `SWIPE_VOLUME_GUIDANCE` / the caps
+inherits the `config.py` defaults (or the `.env` value, which is the
+baseline those defaults resolve to) — `_apply_mode()` resets them each
+call, so `--mode X` can't inherit the last mode's tuning.
 
 ### Phase 5a — Profile health check (recommended before going live)
 
@@ -162,9 +184,15 @@ screens, say so rather than inventing a report.
 4. Review the frames and decisions under `debug/` (`debug/liked/` and
    `debug/skipped/`, one folder per profile, plus the JSONL log). Walk
    through the decisions together.
-5. **Iterate on `PREFERENCES`** based on what they see. On free tier the
-   user has to wait for the daily swipe allotment to reset before a
-   meaningful next batch; with Bumble+ they can re-run immediately.
+5. **Iterate on `PREFERENCES`** based on what they see — and on
+   `FIT_SCORE_MIN` if the complaint is volume rather than taste. The
+   printed `avg fit N/100` and each profile's `fit_score` in `debug/` /
+   the JSONL log say whether the rubric is scoring well and only the
+   threshold is off (scores cluster above or below the line) or whether
+   the rubric itself is wrong (scores look random relative to the
+   profiles). On free tier the user has to wait for the daily swipe
+   allotment to reset before a meaningful next batch; with Bumble+ they
+   can re-run immediately.
 6. Once dialed in: if the user has Bumble+, raise
    `MAX_LIKES_PER_SESSION` to 30–50 and consider running multiple
    sessions across the day. If they don't, leave it at 20 and treat one
@@ -181,8 +209,9 @@ Dry-run guidance by tier (see Hard Constraints):
 
 - `main.py` — loop runner; capture → judge → act.
 - `judge_common.py` — backend-agnostic system prompt, tool schema,
-  `Decision` dataclass, `load_backend()` dispatcher, and the fatal/network
-  error classifiers.
+  `Decision` dataclass, `apply_fit_threshold()` (the one place like/skip is
+  decided), `load_backend()` dispatcher, and the fatal/network error
+  classifiers.
 - `judge.py` — Anthropic backend.
 - `judge_gemini.py` — Gemini backend.
 - `judge_deepseek.py` — DeepSeek backend (OpenAI-compatible REST).
@@ -191,7 +220,7 @@ Dry-run guidance by tier (see Hard Constraints):
   ACTIVE_MODE, JUDGE_BACKEND. Mode files write into here via
   `_apply_mode()`.
 - `modes/` — rubric files. Each exports `NAME`, `PREFERENCES`, and
-  optional `AGE_MIN/MAX`, `MAX_LIKES_PER_SESSION`,
+  optional `AGE_MIN/MAX`, `FIT_SCORE_MIN`, `MAX_LIKES_PER_SESSION`,
   `MAX_PROFILES_PER_SESSION`, `SWIPE_VOLUME_GUIDANCE`.
 - `adb.py` — emulator I/O: screenshot, tap, swipe, type, deadline on
   every call.
@@ -213,6 +242,13 @@ land correctly. If not, you'll see symptoms like:
 - A run that keeps force-skipping: `main.py`'s duplicate detection
   fires when frame 0 is unchanged, which usually means the action
   gesture didn't register at all.
+- A run that prints `DIALOG DETECTED` and restarts the app on repeat:
+  the judge is seeing a popup rather than a profile. That's the
+  guard working, not a calibration problem — but if it escalates to
+  `TIER 3` and aborts, Bumble has changed its upsell/prompt screens
+  enough that a back press no longer clears them. Look at the
+  screenshot the run saved under `debug/errors/` and at
+  `_recover_from_dialog()` in `main.py`.
 
 When this happens, don't just shrug — you can fix it in-session.
 

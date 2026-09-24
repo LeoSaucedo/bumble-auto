@@ -58,6 +58,16 @@ MAX_LIKES_PER_SESSION = 20
 SESSION_LIKE_MIN = 5
 MAX_PROFILES_PER_SESSION = 100
 
+# ---------- Pickiness (fit score gate) ----------
+# The judge returns a fit_score (0-100) for every profile and never chooses
+# like vs skip itself. The harness decides LIKE iff fit_score >=
+# FIT_SCORE_MIN, else SKIP. Raise this to be pickier (fewer likes, higher
+# average quality); lower it for more volume. A mode file may set its own
+# FIT_SCORE_MIN to make just that mode pickier — that's the right lever for
+# "be selective" rubrics, since it's enforced rather than merely suggested.
+# Env override: FIT_SCORE_MIN in .env.
+FIT_SCORE_MIN = 50
+
 # ---------- Device settings ----------
 # Moto e20 real phone is 720x1600. Change if using a different device.
 SCREEN_WIDTH = 720
@@ -142,13 +152,13 @@ OLLAMA_HOST = None
 GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 # ---------- Swipe volume guidance ----------
-# Injected into the system prompt to guide how aggressively the judge
-# swipes right. None = use DEFAULT_VOLUME_GUIDANCE from judge_common.py.
-# Set to a custom string to override the default guidance, or set it in a
-# mode file to give just that mode its own volume (a selective rubric like
-# "when in doubt, skip" otherwise fights the default "aim for roughly
-# half" at the bottom of the prompt). Private modes keep their personal
-# tuning here rather than in this shared default.
+# Injected into the system prompt to calibrate how the judge *scores*
+# profiles — it no longer decides like vs skip (see FIT_SCORE_MIN above), so
+# this is about using the 0-100 range honestly, not about a target like
+# count. None = use DEFAULT_VOLUME_GUIDANCE from judge_common.py. Set to a
+# custom string to override the default guidance, or set it in a mode file
+# to give just that mode its own calibration. Private modes keep their
+# personal tuning here rather than in this shared default.
 SWIPE_VOLUME_GUIDANCE: str | None = None
 
 # ---------- DeepSeek settings (when JUDGE_BACKEND == "deepseek") ----------
@@ -211,12 +221,37 @@ def _apply_env_overrides() -> None:
 _apply_env_overrides()
 
 
+# Keys a mode file may override. PREFERENCES / AGE_MIN / AGE_MAX / MODE_NAME
+# are always assigned from the mode, so they can't leak; these four are
+# assigned only when the mode actually defines them, which means a mode that
+# omits one would otherwise inherit whatever the *previous* mode set.
+#
+# That matters on the `python main.py --mode X` path: _apply_mode() runs once
+# at import (for .env's ACTIVE_MODE) and again after arg parsing, so with
+# ACTIVE_MODE=carlos in .env, `--mode cougar` would silently inherit carlos's
+# FIT_SCORE_MIN and SWIPE_VOLUME_GUIDANCE instead of the defaults. _apply_mode
+# restores these from this snapshot before applying the mode's own values.
+#
+# The snapshot is taken after _apply_env_overrides(), so a .env value is the
+# baseline a mode falls back to — setting FIT_SCORE_MIN in .env still works as
+# a global default.
+_MODE_OVERRIDABLE = (
+    "MAX_LIKES_PER_SESSION",
+    "MAX_PROFILES_PER_SESSION",
+    "SWIPE_VOLUME_GUIDANCE",
+    "FIT_SCORE_MIN",
+)
+_MODE_DEFAULTS = {_k: globals()[_k] for _k in _MODE_OVERRIDABLE}
+
+
 def _apply_mode() -> None:
     """Resolve ACTIVE_MODE and populate this module's PREFERENCES /
-    AGE_MIN / AGE_MAX / MODE_NAME / cap overrides.
+    AGE_MIN / AGE_MAX / MODE_NAME and the _MODE_OVERRIDABLE tuning keys.
 
     Re-entrant — main.py calls this again after parsing --mode so a CLI
-    override takes effect before the judge sees config.
+    override takes effect before the judge sees config. Each call resets the
+    overridable keys to their defaults first, so switching modes can't leak
+    the previous mode's tuning into the new one.
     """
     import modes
     mode = modes.load(ACTIVE_MODE)
@@ -225,11 +260,9 @@ def _apply_mode() -> None:
     g["AGE_MIN"] = getattr(mode, "AGE_MIN", None)
     g["AGE_MAX"] = getattr(mode, "AGE_MAX", None)
     g["MODE_NAME"] = mode.NAME
-    for k in ("MAX_LIKES_PER_SESSION", "MAX_PROFILES_PER_SESSION",
-              "SWIPE_VOLUME_GUIDANCE"):
+    for k in _MODE_OVERRIDABLE:
         v = getattr(mode, k, None)
-        if v is not None:
-            g[k] = v
+        g[k] = _MODE_DEFAULTS[k] if v is None else v
 
 
 _apply_mode()
