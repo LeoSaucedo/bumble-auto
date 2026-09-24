@@ -287,6 +287,10 @@ def load_backend():
     if backend == "gemini":
         import judge_gemini
         return judge_gemini
+    if backend == "deepseek":
+        import judge_deepseek
+        return judge_deepseek
     raise ValueError(
-        f"Unknown JUDGE_BACKEND={backend!r}. Use 'anthropic', 'ollama', or 'gemini'."
+        f"Unknown JUDGE_BACKEND={backend!r}. Use 'anthropic', 'deepseek', "
+        f"'gemini', or 'ollama'."
     )
