@@ -1,4 +1,4 @@
-"""Gemini backend for HingeAuto judging.
+"""Gemini backend for BumbleAuto judging.
 
 Sends profile screenshots to a Gemini vision model with a forced
 function call to extract a structured Decision. Same interface as `judge.py`.
@@ -45,7 +45,7 @@ def judge(frames: list[bytes]) -> Decision:
     parts = [_image_part(f) for f in frames]
     parts.append(types.Part(
         text=(
-            f"Above are {len(frames)} screenshots of one Hinge profile, in "
+            f"Above are {len(frames)} screenshots of one Bumble profile, in "
             "order from top to bottom. Decide whether to like or skip."
         )
     ))

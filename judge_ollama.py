@@ -1,4 +1,4 @@
-"""Ollama backend for HingeAuto judging.
+"""Ollama backend for BumbleAuto judging.
 
 Targets a vision-capable model running on either:
   - Local Ollama  (`ollama serve` on your machine, default
@@ -65,7 +65,7 @@ def _tool_spec() -> dict:
         "type": "function",
         "function": {
             "name": "submit_decision",
-            "description": "Submit a like/skip decision for this Hinge profile.",
+            "description": "Submit a like/skip decision for this Bumble profile.",
             "parameters": DECIDE_INPUT_SCHEMA,
         },
     }
@@ -81,7 +81,7 @@ def judge(frames: list[bytes]) -> Decision:
     model = getattr(config, "OLLAMA_MODEL", "qwen2.5-vl")
 
     user_text = (
-        f"Above are {len(frames)} screenshots of one Hinge profile, in order "
+        f"Above are {len(frames)} screenshots of one Bumble profile, in order "
         "from top to bottom. Decide whether to like or skip, and call the "
         "submit_decision tool with the structured result."
     )

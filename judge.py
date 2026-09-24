@@ -1,4 +1,4 @@
-"""Anthropic backend for HingeAuto judging.
+"""Anthropic backend for BumbleAuto judging.
 
 Sends profile screenshots to Claude with a forced tool call to extract a
 structured Decision. Shared pieces (system prompt, schema, dataclass)
@@ -21,7 +21,7 @@ from judge_common import (
 
 DECIDE_TOOL = {
     "name": "submit_decision",
-    "description": "Submit a like/skip decision for this Hinge profile.",
+    "description": "Submit a like/skip decision for this Bumble profile.",
     "input_schema": DECIDE_INPUT_SCHEMA,
 }
 
@@ -52,7 +52,7 @@ def judge(frames: list[bytes]) -> Decision:
     content.append({
         "type": "text",
         "text": (
-            f"Above are {len(frames)} screenshots of one Hinge profile, in order "
+            f"Above are {len(frames)} screenshots of one Bumble profile, in order "
             "from top to bottom. Decide whether to like or skip."
         ),
     })
