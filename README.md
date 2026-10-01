@@ -18,6 +18,7 @@
 <p align="center">
   <a href="#-read-this-first">Read this first</a> ·
   <a href="#quickstart">Quickstart</a> ·
+  <a href="#failure-alerts">Failure alerts</a> ·
   <a href="#backends">Backends</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#differences-from-hinge-auto">Differences from HingeAuto</a> ·
@@ -105,12 +106,44 @@ Add your API key for the desired backend (see [Backends](#backends)).
 
 ```bash
 source .venv/bin/activate
-python main.py
+python run.py
 ```
 
 Each profile scrolls through screenshots, the judge scores it, the harness
 turns that score into like/skip, and the bot swipes accordingly. Running totals
 print after each profile, including the session's average fit score.
+
+`run.py` is a thin wrapper over `main.py` that also catches failures
+raised before the loop starts — see [Failure alerts](#failure-alerts).
+`python main.py` still works if you'd rather run the loop directly.
+
+## Failure alerts
+
+An aborted run is not a success, and a silent one is worse. Two things
+cover that:
+
+- **`main()` exits 1 on abort, 0 on a clean run.** `run_random_window.sh`
+  logs it as `Done (exit N)`, so `cron.log` distinguishes a run that
+  finished from one that died halfway.
+- **Failures notify; routine posts stay quiet.** Set
+  `DISCORD_MENTION_USER_ID` in `.env` to your own user ID (Discord
+  Developer Mode → Copy User ID) and set the channel's notification
+  setting to **Only @mentions**. "Run Complete" embeds still arrive but
+  make no noise; errors — loading-screen give-up, dialog recovery
+  exhausted, fatal judge error, network outage, or an unhandled crash —
+  carry a real mention and ping. Leave the variable unset for no mention.
+
+The mention rides in the message *content* because that's the only place
+Discord notifies from; one rendered inside an embed is inert.
+`allowed_mentions` is pinned to `users`, so no error post can page a role
+or `@everyone`.
+
+`run.py` is the cron entry point and the outer crash net. `main.py`
+reports its own runtime crashes, but it can't report an import-time
+failure — its module body fails before its handler exists — so `run.py`
+imports it inside a `try`. Launched that way main's own handler never
+runs, so a crash can't double-post. Arguments pass straight through, so
+the cron wrapper's `--mode carlos` reaches `main()`'s argparse unchanged.
 
 ## Backends
 
@@ -172,14 +205,15 @@ ADB capture    →  frame stitching  →  LLM judge         →  swipe
 | Module | Role |
 |---|---|
 | **`adb.py`** | Wraps the `adb` CLI: screenshot, tap, swipe, type. |
-| **`main.py`** | The orchestration loop. For each profile: scroll through content, capture frames, run through judge, then swipe right or left. |
+| **`main.py`** | The orchestration loop. For each profile: scroll through content, capture frames, run through judge, then swipe right or left. Every abort sets `abort_reason`, consumed once at the end so a run posts exactly one webhook — error or success — and exits 1. |
+| **`run.py`** | Cron entry point and outer crash net. Imports `main` inside a `try` so an import-time failure still reaches Discord, then passes `main()`'s exit code through. |
 | **`judge_common.py`** | Backend-agnostic pipeline: system prompt template, JSON tool schema, `Decision` dataclass, `apply_fit_threshold()` (the one place like/skip gets decided), and `load_backend()` dispatcher. |
 | **`judge.py`** | Anthropic Claude backend — vision + forced tool call. |
 | **`judge_deepseek.py`** | DeepSeek backend — vision + forced tool call (OpenAI-compatible REST, no SDK). |
 | **`judge_gemini.py`** | Google Gemini backend — vision + function declaration. |
 | **`judge_ollama.py`** | Ollama backend — local or Ollama Cloud vision model. |
 | **`metrics.py`** | Per-profile cost tracking and JSONL logging. |
-| **`report.py`** | Discord webhook reporting with batched attachments. |
+| **`report.py`** | Discord webhook reporting with batched attachments. Error and crash posts @mention the configured user in the top-level `content`, which is the only place Discord notifies from. |
 | **`config.py`** | All settings with `.env` override support. |
 | **`run_random_window.sh`** | Cron wrapper with random jitter for session randomization. |
 

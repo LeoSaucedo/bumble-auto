@@ -178,8 +178,10 @@ screens, say so rather than inventing a report.
 
 1. Leave `MAX_LIKES_PER_SESSION = 20` (default) and `DRY_RUN = False`
    (default).
-2. Have the user start the loop: `python main.py` (with the Bumble feed
-   open). Watch the printed decisions live.
+2. Have the user start the loop: `python run.py` (with the Bumble feed
+   open). Watch the printed decisions live. `run.py` is a thin wrapper
+   over `main.py` that also reports failures raised before the loop
+   starts; `python main.py` works the same for a live session.
 3. Stop with Ctrl-C if anything looks wrong — a like that should've
    been a skip, a skip that should've been a like, etc.
 4. Review the frames and decisions under `debug/` (`debug/liked/` and
@@ -209,6 +211,19 @@ Dry-run guidance by tier (see Hard Constraints):
 ## Architecture orientation (for when the user asks "where does X live")
 
 - `main.py` — loop runner; capture → judge → act.
+- `run.py` — cron entry point and outer crash net: imports `main` inside
+  a `try` so an import-time failure still reaches Discord, then passes
+  `main()`'s exit code through. `main()` returns 1 on abort, 0 on a
+  clean run, so `cron.log`'s `Done (exit N)` line distinguishes them.
+  Arguments pass through untouched, which is how the cron wrapper's
+  `--mode carlos` still reaches `main()`'s argparse.
+- `report.py` — Discord webhook posts. Error and crash posts @mention
+  the user ID in `DISCORD_MENTION_USER_ID`; the mention has to be in the
+  top-level `content`, since Discord ignores mentions rendered inside an
+  embed. With the channel set to "Only @mentions", routine posts stay
+  silent and failures ping — so a user asking "why didn't I get
+  notified?" usually has a channel-level notification setting to check,
+  not a bug here.
 - `judge_common.py` — backend-agnostic system prompt, tool schema,
   `Decision` dataclass, `apply_fit_threshold()` (the one place like/skip is
   decided), `load_backend()` dispatcher, and the fatal/network error
@@ -252,9 +267,9 @@ land correctly. If not, you'll see symptoms like:
   the judge is seeing a popup rather than a profile. That's the
   guard working, not a calibration problem — but if it escalates to
   `TIER 3` and aborts, Bumble has changed its upsell/prompt screens
-  enough that a back press no longer clears them. Look at the
-  screenshot the run saved under `<DEBUG_DIR>/errors/` and at
-  `_recover_from_dialog()` in `main.py`.
+  enough that a back press no longer clears them. The run pings Discord
+  and exits 1 on that path; look at the screenshot it saved under
+  `<DEBUG_DIR>/errors/` and at `_recover_from_dialog()` in `main.py`.
 
 When this happens, don't just shrug — you can fix it in-session.
 
