@@ -77,6 +77,20 @@ FIT_SCORE_MIN = 50
 SCREEN_WIDTH = 720
 SCREEN_HEIGHT = 1600
 
+# ---------- Shared-device guard ----------
+# Both bots drive the same phone, and their cron slots sit only a couple of
+# hours apart (bumble on even hours, hinge on odd). When one overruns into
+# the other's slot, the second one's launch_app() steals the foreground and
+# the first keeps tapping blind — reading, judging and liking whatever feed
+# is now in front of it. On 2026-10-01 bumble ran 74 minutes, overran hinge's
+# 17:00 slot, and both bots reported the same women (annacara/kat/erin) at
+# overlapping times.
+#
+# SIBLING_PACKAGE names the other bot's app. main.py checks the foreground
+# package once per profile and ends the run if it is this one; the sibling is
+# then free to finish its slot alone. Set to "" to disable the check.
+SIBLING_PACKAGE = "co.hinge.app"
+
 # Number of scroll-and-screenshot passes per profile.
 # Longer profiles (6 photos + 3 prompts) need ~7 frames at the scroll step
 # below. Duplicate end frames on shorter profiles are harmless.
