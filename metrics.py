@@ -1,6 +1,6 @@
 """Per-profile structured logging for the autopilot loop.
 
-Each profile run produces one JSONL line in `debug/session_log.jsonl`
+Each profile run produces one JSONL line in `<DEBUG_DIR>/session_log.jsonl`
 with timing, token usage, decision, and message metadata. Append-only
 and machine-parseable so chart-making downstream is trivial.
 """
@@ -32,13 +32,29 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
         "output_tokens":   75.00,
     },
     # ---------- Gemini ----------
+    # Rates from https://ai.google.dev/gemini-api/docs/pricing (Sept 2026).
+    "gemini-3.5-flash-lite": {
+        "input_tokens":     0.30,
+        "output_tokens":    2.50,
+    },
+    # 3.6 / 3.7 / 3.8 Flash share one schedule: $0.75/$3.75 now, doubling
+    # to $1.50/$7.50 on 2027-01-01. These are the current rates, so
+    # estimates will under-report once the step-up lands.
+    "gemini-3.6-flash": {
+        "input_tokens":     0.75,
+        "output_tokens":    3.75,
+    },
+    "gemini-3.7-flash": {
+        "input_tokens":     0.75,
+        "output_tokens":    3.75,
+    },
+    "gemini-3.8-flash": {
+        "input_tokens":     0.75,
+        "output_tokens":    3.75,
+    },
     "gemini-3.5-flash": {
         "input_tokens":     1.50,
         "output_tokens":    9.00,
-    },
-    "gemini-3.6-flash": {
-        "input_tokens":     1.50,
-        "output_tokens":    7.50,
     },
     "gemini-3.1-flash-lite": {
         "input_tokens":     0.25,
@@ -47,6 +63,16 @@ MODEL_PRICING: dict[str, dict[str, float]] = {
     "gemini-3-flash-preview": {
         "input_tokens":     0.30,
         "output_tokens":    1.00,
+    },
+    # ---------- DeepSeek ----------
+    # deepseek-flash, peak rates. Peak windows are 01:00-04:00 and
+    # 06:00-10:00 UTC on weekdays; everything else (and all weekend) is
+    # off-peak at half these rates.
+    # Cached input is billed far cheaper ($0.003-0.006/1M), but it's
+    # reported inside input_tokens here, so estimates run slightly high.
+    "deepseek-flash": {
+        "input_tokens":     0.30,
+        "output_tokens":    1.20,
     },
     # ---------- Ollama ----------
     "qwen2.5-vl": {
@@ -66,13 +92,22 @@ def _resolve_model_name() -> str:
     if backend == "anthropic":
         return getattr(config, "MODEL", "claude-sonnet-4-6")
     if backend == "gemini":
-        return getattr(config, "GEMINI_MODEL", "gemini-3.1-flash-lite")
+        return getattr(config, "GEMINI_MODEL", "gemini-3.5-flash-lite")
+    if backend == "deepseek":
+        return getattr(config, "DEEPSEEK_MODEL", "deepseek-flash")
     if backend == "ollama":
         return getattr(config, "OLLAMA_MODEL", "qwen2.5-vl")
     return "unknown"
 
 
 _ACTIVE_MODEL = _resolve_model_name()
+
+
+def active_model() -> str:
+    """Model name for the active backend (same string logged per profile)."""
+    return _ACTIVE_MODEL
+
+
 _PRICING = MODEL_PRICING.get(_ACTIVE_MODEL)
 if _PRICING is None:
     print(f"[metrics] WARN: unknown model {_ACTIVE_MODEL!r}, cost will be $0 "
@@ -108,9 +143,10 @@ def log_profile(
         "model": _ACTIVE_MODEL,
         "name": decision.name,
         "decision": decision.decision,
+        "fit_score": decision.fit_score,
         "confidence": decision.confidence,
         "reasoning": decision.reasoning,
-        "skip_reason": decision.skip_reason,
+        "dominant_factor": decision.dominant_factor,
         "timing": timing,
         "tokens": decision.usage,
         "estimated_cost_usd": round(estimated_cost(decision.usage), 5),
@@ -126,6 +162,7 @@ def print_running_totals(
     skips: int,
     total_cost: float,
     total_seconds: float,
+    avg_fit_score: float = 0.0,
 ) -> None:
     """One-line summary printed every loop iteration."""
     avg_cost = total_cost / profiles_seen if profiles_seen else 0
@@ -135,6 +172,7 @@ def print_running_totals(
     print(
         f"[totals] {profiles_seen} profiles | {likes_sent} likes "
         f"({like_rate:.0%}) | {skips} skips | "
+        f"avg fit {avg_fit_score:.0f}/100 | "
         f"${total_cost:.3f} (~${avg_cost:.4f}/profile) | "
         f"avg {avg_time:.1f}s/profile | {model_tag}"
     )

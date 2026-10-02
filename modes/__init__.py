@@ -2,7 +2,7 @@
 
 Each mode is a Python module under `modes/` exporting at minimum `NAME` and
 `PREFERENCES`. Optional: `AGE_MIN`, `AGE_MAX`, `MAX_LIKES_PER_SESSION`,
-`MAX_PROFILES_PER_SESSION`.
+`MAX_PROFILES_PER_SESSION`, `SWIPE_VOLUME_GUIDANCE`.
 
 `config.py` resolves the active mode at import time via `config._apply_mode()`
 and writes the mode's constants into `config`'s module globals, so callers

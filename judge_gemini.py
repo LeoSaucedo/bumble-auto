@@ -1,4 +1,4 @@
-"""Gemini backend for HingeAuto judging.
+"""Gemini backend for BumbleAuto judging.
 
 Sends profile screenshots to a Gemini vision model with a forced
 function call to extract a structured Decision. Same interface as `judge.py`.
@@ -22,7 +22,7 @@ from judge_common import (
 
 DECIDE_DECLARATION = types.FunctionDeclaration(
     name="submit_decision",
-    description="Submit a like/skip decision for this Bumble profile.",
+    description="Submit a fit score for this Bumble profile.",
     parameters=DECIDE_INPUT_SCHEMA,
 )
 
@@ -40,13 +40,13 @@ def judge(frames: list[bytes]) -> Decision:
         raise RuntimeError("GEMINI_API_KEY not set. Add it to .env or export it.")
 
     client = genai.Client(api_key=api_key)
-    model = getattr(config, "GEMINI_MODEL", "gemini-3.1-flash-lite")
+    model = getattr(config, "GEMINI_MODEL", "gemini-3.5-flash-lite")
 
     parts = [_image_part(f) for f in frames]
     parts.append(types.Part(
         text=(
-            f"Above are {len(frames)} screenshots of one Hinge profile, in "
-            "order from top to bottom. Decide whether to like or skip."
+            f"Above are {len(frames)} screenshots of one Bumble profile, in "
+            "order from top to bottom. Score the profile's fit."
         )
     ))
 

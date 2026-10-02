@@ -2,11 +2,14 @@
 
 import shutil
 import time
-from pathlib import Path
 
 import adb
+import config
 
-out = Path(__file__).parent / "debug" / "full_profile"
+# config.DEBUG_DIR rather than ./debug: the capture corpus is large enough
+# that it gets pointed at a separate disk, and this tool should follow it
+# there instead of quietly filling the repo's own filesystem.
+out = config.DEBUG_DIR / "full_profile"
 if out.exists():
     shutil.rmtree(out)
 out.mkdir(parents=True)

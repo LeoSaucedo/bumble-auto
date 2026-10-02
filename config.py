@@ -4,12 +4,14 @@ PREFERENCES, AGE_MIN/MAX come from the active mode (see
 `modes/`). Set ACTIVE_MODE here for the persistent default; override per-run
 via `python main.py --mode <name>`.
 
-The COORDS defaults below are **placeholders** — update with real Bumble
-coords after running calibrate.py against the app.
+The COORDS defaults below are calibrated against Bumble's current layout;
+re-run calibrate.py if the UI shifts. Both they and the screen size are
+overridable from .env.
 
 .env variables override every config.py value at import time.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -58,8 +60,20 @@ MAX_LIKES_PER_SESSION = 20
 SESSION_LIKE_MIN = 5
 MAX_PROFILES_PER_SESSION = 100
 
+# ---------- Pickiness (fit score gate) ----------
+# The judge returns a fit_score (0-100) for every profile and never chooses
+# like vs skip itself. The harness decides LIKE iff fit_score >=
+# FIT_SCORE_MIN, else SKIP. Raise this to be pickier (fewer likes, higher
+# average quality); lower it for more volume. A mode file may set its own
+# FIT_SCORE_MIN to make just that mode pickier — that's the right lever for
+# "be selective" rubrics, since it's enforced rather than merely suggested.
+# Env override: FIT_SCORE_MIN in .env.
+FIT_SCORE_MIN = 50
+
 # ---------- Device settings ----------
-# Moto e20 real phone is 720x1600. Change if using a different device.
+# Shipped default is a 720x1600 screen. Override SCREEN_WIDTH/SCREEN_HEIGHT
+# in .env for a different device — every value in COORDS below is a raw pixel
+# on THIS screen, so a different size means recalibrating the whole table.
 SCREEN_WIDTH = 720
 SCREEN_HEIGHT = 1600
 
@@ -69,8 +83,9 @@ SCREEN_HEIGHT = 1600
 FRAMES_PER_PROFILE = 7
 
 # ---------- Coordinates ----------
-# *** PLACEHOLDERS — replace with real Bumble coords ***
-# Run `python calibrate.py` to verify/adjust after any Bumble UI update.
+# Raw pixels on the screen size above. Keys are individually overridable from
+# .env as JSON — see .env.example. Run `python calibrate.py` to
+# verify/adjust after any Bumble UI update.
 COORDS = {
     # Swipe action targets (bottom of profile after scrolling through).
     # On Bumble, the heart (like) and X (skip) buttons are always at the
@@ -79,7 +94,7 @@ COORDS = {
     "like_button":       (595, 1000),  # Heart icon (calibrated 2026-06-29)
 
     # Swipe gesture coords (horizontal swipe instead of button taps).
-    # Swipe at vertical center of screen (y=800 on 720x1600).
+    # Swipe at vertical center of screen (y=800 = half the screen height).
     # 80% of width (576) → 20% (144) for swipe left (skip).
     # 20% (144) → 80% (576) for swipe right (like).
     "swipe_skip_from":   (576, 800),
@@ -88,7 +103,10 @@ COORDS = {
     "swipe_like_to":     (576, 800),
     "swipe_duration_ms": 200,
 
-    # Scroll gesture (swipe up = scroll down through profile).
+    # Scroll gesture (swipe up = scroll down through profile). Only the y
+    # values are read: the live x is re-randomized per gesture within a
+    # safe band (adb._scroll_span), and both endpoints get a little y
+    # jitter so repeated swipes aren't identical.
     "scroll_from":       (360, 1125),
     "scroll_to":         (360, 375),
     "scroll_duration_ms": 500,
@@ -115,7 +133,8 @@ DELAYS = {
 # "anthropic" -> uses your ANTHROPIC_API_KEY; best quality, ~$0.02-0.05/profile.
 # "ollama"    -> uses Ollama Cloud (free tier) or local Ollama; lower quality
 #                but no per-token cost.
-# "gemini"    -> uses Gemini via GEMINI_API_KEY; cheapest option.
+# "gemini"    -> uses Gemini via GEMINI_API_KEY; cheap, good quality.
+# "deepseek"  -> uses DeepSeek via DEEPSEEK_API_KEY; cheap vision backend.
 JUDGE_BACKEND = "gemini"
 
 # ---------- Anthropic settings (when JUDGE_BACKEND == "anthropic") ----------
@@ -132,20 +151,44 @@ OLLAMA_HOST = None
 
 # ---------- Gemini settings (when JUDGE_BACKEND == "gemini") ----------
 # GEMINI_API_KEY must be set in .env or environment.
-# Uses gemini-3.1-flash-lite by default (cheapest vision model). Override
-# via GEMINI_MODEL env var or edit the default below.
-GEMINI_MODEL = "gemini-3.1-flash-lite"
+# Uses gemini-3.5-flash-lite by default — $0.30/$2.50 per 1M tokens, the
+# cheapest vision model in the current lineup. Override via GEMINI_MODEL
+# env var or edit the default below.
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 # ---------- Swipe volume guidance ----------
-# Injected into the system prompt to guide how aggressively the judge
-# swipes right. None = use DEFAULT_VOLUME_GUIDANCE from judge_common.py.
-# Set to a custom string to override the default guidance.
+# Injected into the system prompt to calibrate how the judge *scores*
+# profiles — it no longer decides like vs skip (see FIT_SCORE_MIN above), so
+# this is about using the 0-100 range honestly, not about a target like
+# count. None = use DEFAULT_VOLUME_GUIDANCE from judge_common.py. Set to a
+# custom string to override the default guidance, or set it in a mode file
+# to give just that mode its own calibration. Private modes keep their
+# personal tuning here rather than in this shared default.
 SWIPE_VOLUME_GUIDANCE: str | None = None
+
+# ---------- DeepSeek settings (when JUDGE_BACKEND == "deepseek") ----------
+# DEEPSEEK_API_KEY must be set in .env or environment. The API is
+# OpenAI-compatible (https://api.deepseek.com); see judge_deepseek.py.
+#
+# Models:
+#   "deepseek-flash"   — DeepSeek-V4.1-Flash; vision-capable (default)
+#   "deepseek-v4-pro"  — stronger, but NO vision — unusable for this repo
+# Override via DEEPSEEK_MODEL env var or edit the default below.
+DEEPSEEK_MODEL = "deepseek-flash"
+
+# Thinking mode. Off by default: it's the only way to force the
+# submit_decision tool call (the API rejects forced tool choice while
+# thinking is on — see judge_deepseek.py). Turn it on for better
+# reasoning on ambiguous profiles, at the cost of a prose-answer
+# fallback path and a slower, pricier call.
+DEEPSEEK_THINKING = False
+# Only used when DEEPSEEK_THINKING = True. low | medium | high | max
+# ("medium" is mapped to "high" by the API).
+DEEPSEEK_REASONING_EFFORT = "low"
 
 # ---------- Paths ----------
 BASE_DIR = Path(__file__).parent
 DEBUG_DIR = BASE_DIR / "debug"
-SCREENSHOTS_DIR = BASE_DIR / "screenshots"
 SAVE_DEBUG_FRAMES = True  # keep frames + decisions in debug/ for review
 
 
@@ -156,8 +199,12 @@ load_dotenv()
 def _apply_env_overrides() -> None:
     """Override any config module variable from .env.
 
-    Add `KEY=*** to .env and it'll override the matching config.py
-    variable at import time. Supports str, int, float, and bool types.
+    Add `KEY=VALUE` to .env and it'll override the matching config.py
+    variable at import time. Supports str, int, float, bool, and Path types
+    (Path values are resolved relative to BASE_DIR unless absolute).
+
+    Dict-valued config (COORDS, DELAYS) is written as a JSON object and is
+    merged over the defaults rather than replacing them.
     """
     g = globals()
     for key, val in os.environ.items():
@@ -176,6 +223,37 @@ def _apply_env_overrides() -> None:
                 g[key] = float(val)
             except ValueError:
                 print(f"[config] env {key}={val!r}: not a valid float, skipped")
+        elif isinstance(current, Path):
+            # Paths stay Paths — assigning the bare string would break every
+            # `config.DEBUG_DIR / "subdir"` in the tree. Relative values
+            # resolve against the repo the way BASE_DIR-relative defaults do,
+            # so `DEBUG_DIR=debug2` means <repo>/debug2.
+            g[key] = Path(val).expanduser()
+            if not g[key].is_absolute():
+                g[key] = BASE_DIR / g[key]
+        elif isinstance(current, dict):
+            # Same reasoning as Paths: without this branch a dict-valued key
+            # falls through to the bare-string assignment below, and
+            # `COORDS='{...}'` in .env replaces the whole coordinate table
+            # with the *text* of a JSON object. Every later
+            # `config.COORDS["skip_button"]` then raises
+            # `TypeError: string indices must be integers` on the first tap.
+            #
+            # Merged over the defaults, not replacing them: a .env that moves
+            # two buttons shouldn't have to restate the table, and a typo'd
+            # key name then adds an entry nobody reads instead of silently
+            # dropping every key it didn't mention.
+            try:
+                parsed = json.loads(val)
+            except json.JSONDecodeError:
+                print(f"[config] env {key}={val!r}: not valid JSON, skipped")
+                continue
+            if not isinstance(parsed, dict):
+                print(f"[config] env {key}={val!r}: expected a JSON object, skipped")
+                continue
+            merged = dict(current)
+            merged.update(parsed)
+            g[key] = merged
         else:
             g[key] = val
 
@@ -183,12 +261,37 @@ def _apply_env_overrides() -> None:
 _apply_env_overrides()
 
 
+# Keys a mode file may override. PREFERENCES / AGE_MIN / AGE_MAX / MODE_NAME
+# are always assigned from the mode, so they can't leak; these four are
+# assigned only when the mode actually defines them, which means a mode that
+# omits one would otherwise inherit whatever the *previous* mode set.
+#
+# That matters on the `python main.py --mode X` path: _apply_mode() runs once
+# at import (for .env's ACTIVE_MODE) and again after arg parsing, so with
+# ACTIVE_MODE=carlos in .env, `--mode cougar` would silently inherit carlos's
+# FIT_SCORE_MIN and SWIPE_VOLUME_GUIDANCE instead of the defaults. _apply_mode
+# restores these from this snapshot before applying the mode's own values.
+#
+# The snapshot is taken after _apply_env_overrides(), so a .env value is the
+# baseline a mode falls back to — setting FIT_SCORE_MIN in .env still works as
+# a global default.
+_MODE_OVERRIDABLE = (
+    "MAX_LIKES_PER_SESSION",
+    "MAX_PROFILES_PER_SESSION",
+    "SWIPE_VOLUME_GUIDANCE",
+    "FIT_SCORE_MIN",
+)
+_MODE_DEFAULTS = {_k: globals()[_k] for _k in _MODE_OVERRIDABLE}
+
+
 def _apply_mode() -> None:
     """Resolve ACTIVE_MODE and populate this module's PREFERENCES /
-    AGE_MIN / AGE_MAX / MODE_NAME / cap overrides.
+    AGE_MIN / AGE_MAX / MODE_NAME and the _MODE_OVERRIDABLE tuning keys.
 
     Re-entrant — main.py calls this again after parsing --mode so a CLI
-    override takes effect before the judge sees config.
+    override takes effect before the judge sees config. Each call resets the
+    overridable keys to their defaults first, so switching modes can't leak
+    the previous mode's tuning into the new one.
     """
     import modes
     mode = modes.load(ACTIVE_MODE)
@@ -197,10 +300,9 @@ def _apply_mode() -> None:
     g["AGE_MIN"] = getattr(mode, "AGE_MIN", None)
     g["AGE_MAX"] = getattr(mode, "AGE_MAX", None)
     g["MODE_NAME"] = mode.NAME
-    for k in ("MAX_LIKES_PER_SESSION", "MAX_PROFILES_PER_SESSION"):
+    for k in _MODE_OVERRIDABLE:
         v = getattr(mode, k, None)
-        if v is not None:
-            g[k] = v
+        g[k] = _MODE_DEFAULTS[k] if v is None else v
 
 
 _apply_mode()

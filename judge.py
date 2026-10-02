@@ -1,4 +1,4 @@
-"""Anthropic backend for HingeAuto judging.
+"""Anthropic backend for BumbleAuto judging.
 
 Sends profile screenshots to Claude with a forced tool call to extract a
 structured Decision. Shared pieces (system prompt, schema, dataclass)
@@ -6,8 +6,10 @@ live in `judge_common.py` so the Ollama backend stays in sync.
 """
 
 import base64
+import os
 
 import anthropic
+from dotenv import load_dotenv
 
 import config
 from judge_common import (
@@ -19,7 +21,7 @@ from judge_common import (
 
 DECIDE_TOOL = {
     "name": "submit_decision",
-    "description": "Submit a like/skip decision for this Hinge profile.",
+    "description": "Submit a fit score for this Bumble profile.",
     "input_schema": DECIDE_INPUT_SCHEMA,
 }
 
@@ -37,14 +39,21 @@ def _image_block(png_bytes: bytes) -> dict:
 
 def judge(frames: list[bytes]) -> Decision:
     """Given an ordered list of PNG frames of one profile, return a Decision."""
+    load_dotenv()
+    # Fail with the same plain message judge_deepseek.py raises, rather than
+    # letting the SDK surface its own constructor error mid-run. config.py
+    # still defaults to this backend, so switching back without the key in
+    # .env is an easy mistake to make.
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise RuntimeError("ANTHROPIC_API_KEY not set. Add it to .env or export it.")
     client = anthropic.Anthropic()
 
     content = [_image_block(f) for f in frames]
     content.append({
         "type": "text",
         "text": (
-            f"Above are {len(frames)} screenshots of one Hinge profile, in order "
-            "from top to bottom. Decide whether to like or skip."
+            f"Above are {len(frames)} screenshots of one Bumble profile, in order "
+            "from top to bottom. Score the profile's fit."
         ),
     })
 
