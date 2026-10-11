@@ -2,17 +2,13 @@
 .env
 
 # Calibrated coordinate files (per-device, never commit real values)
-filter_coords.json
-location_coords.json
 matches_coords.json
-locations.json
 
 # Calibration captures from interactive coord mapping
 _cal/
 
-# Debug + screenshots — match data, decisions, captured frames
+# Debug output — match data, decisions, captured frames
 debug/
-screenshots/
 
 # Captured screenshots and ad-hoc state files
 _state.png
@@ -22,6 +18,16 @@ calibrate.png
 
 # ...but README brand art is intentional, not capture data — keep it tracked
 !docs/assets/*.png
+
+# Runtime logs
+cron.log
+
+# Personal mode configs (not shared)
+# Broad globs so dated variants (e.g. carlos-2026-09-08.py) are also ignored.
+modes/carlos*.py
+
+# Test scripts
+test_webhook.py
 
 # Python
 __pycache__/
@@ -36,6 +42,3 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
-modes/carlos.py
-voice/
-test_webhook.py
