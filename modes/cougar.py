@@ -23,6 +23,8 @@ You are evaluating Bumble profiles for the user.
 - Profiles where age is clearly wrong
 
 ## Decision guidance
-- Be generous. Swipe right on anyone interesting.
-- When in doubt, swipe right.
+- Be generous with scores. Anyone interesting clears the bar.
+- When in doubt, round up rather than down.
+- This mode inherits the default FIT_SCORE_MIN (50) — lower it here if
+  the run comes back too quiet.
 """

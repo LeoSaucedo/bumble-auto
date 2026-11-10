@@ -1,5 +1,0 @@
-{
-  "_doc": "Schema only — copy to matches_coords.json and run `python calibrate_matches.py` to populate. matches_tab is the tap target for the Matches/Conversations icon in Hinge's bottom nav.",
-  "screen_size": [0, 0],
-  "matches_tab": [0, 0]
-}

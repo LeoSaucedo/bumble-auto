@@ -21,6 +21,16 @@ AGE_MAX = None  # e.g. 34
 MAX_LIKES_PER_SESSION = None
 MAX_PROFILES_PER_SESSION = None
 
+# Optional. Overrides the default "aim for roughly half" volume guidance
+# at the bottom of the system prompt. Set this when your rubric's own
+# default (e.g. "when in doubt, skip") would otherwise be contradicted by
+# it. None = inherit config's SWIPE_VOLUME_GUIDANCE.
+# SWIPE_VOLUME_GUIDANCE = """
+# ## Swipe volume
+#
+# Be selective. Only swipe right when the profile clears the bar above.
+# """
+
 # The judging rubric. The judge sees this verbatim as part of its system
 # prompt. Write clear instructions for what makes a RIGHT vs LEFT swipe.
 PREFERENCES = """
